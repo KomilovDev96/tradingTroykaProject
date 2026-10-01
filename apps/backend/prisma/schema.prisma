@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Direction {
+  BUY
+  SELL
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+  STOP_LOSS
+}
+
+enum TradeResult {
+  PROFIT
+  STOP_LOSS
+  MANUAL_CLOSE
+}
+
+/// Minimal single-tenant user. This app has no login flow (out of spec scope);
+/// the backend upserts one default user at startup and owns all trades under it.
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  trades    Trade[]
+
+  /// «Остановить / Продолжить анализ» — survives backend restarts.
+  analysisPaused Boolean @default(false)
+}
+
+/// One row per confirmed 3H demand-range snapshot at the moment a signal was confirmed.
+/// The range itself is a continuously-rolling window (see strategyEngine); a session
+/// freezes the levels that were actually in effect for the trade(s) opened against it.
+model TradingSession {
+  id          String   @id @default(cuid())
+  symbol      String
+  strategy    String   @default("TROYKA")
+  startTime   DateTime
+  endTime     DateTime
+  highDemand  Decimal
+  lowDemand   Decimal
+  rangePoints Decimal
+  upperLevel  Decimal
+  lowerLevel  Decimal
+  createdAt   DateTime @default(now())
+  trades      Trade[]
+}
+
+/// A confirmed Troyka signal, tracked as an analytical/virtual trade.
+/// This app never sends a real order — see README section on scope.
+model Trade {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  symbol    String
+  direction Direction
+  status    TradeStatus @default(OPEN)
+  strategy  String      @default("TROYKA")
+  timeframe String      @default("5m")
+
+  sessionId String
+  session   TradingSession @relation(fields: [sessionId], references: [id])
+
+  rangeStart  DateTime
+  rangeEnd    DateTime
+  highDemand  Decimal
+  lowDemand   Decimal
+  rangePoints Decimal
+  upperLevel  Decimal
+  lowerLevel  Decimal
+
+  movementStartTime  DateTime
+  movementStartPrice Decimal
+  confirmationTime   DateTime
+
+  entryPrice Decimal
+  stopLoss   Decimal
+
+  exitPrice Decimal?
+  exitTime  DateTime?
+  pnlPoints Decimal?
+  result    TradeResult?
+
+  /// Dedup key for section 47: one confirmed movement can only ever create one trade,
+  /// even across WebSocket reconnects/backend restarts.
+  signalId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([symbol, status])
+  @@index([createdAt])
+  @@index([direction])
+}

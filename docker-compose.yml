@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: troyka
+      POSTGRES_PASSWORD: troyka
+      POSTGRES_DB: troyka
+    ports:
+      - '5433:5432'
+    volumes:
+      - troyka_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  troyka_postgres_data:
