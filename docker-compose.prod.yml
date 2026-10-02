@@ -1,5 +1,6 @@
 # Production stack. Secrets come from /opt/troyka/.env on the server (never committed):
 #   POSTGRES_PASSWORD=...   DOMAIN=brokerkillers.uz
+#   SUPERADMIN_EMAIL=...    SUPERADMIN_PASSWORD=...  (password only used when that account is first created)
 services:
   postgres:
     image: postgres:16-alpine
@@ -28,6 +29,8 @@ services:
       INSTRUMENT: frxXAUUSD
       PORT: 4000
       FRONTEND_ORIGIN: https://${DOMAIN:?set DOMAIN in .env}
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
 
   frontend:
     build:

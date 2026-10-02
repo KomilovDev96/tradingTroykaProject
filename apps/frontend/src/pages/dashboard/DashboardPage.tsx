@@ -9,11 +9,13 @@ import { SignalPanel } from '../../widgets/signal-panel/SignalPanel';
 import { OpenTrades } from '../../widgets/open-trades/OpenTrades';
 import { PerformanceCard } from '../../widgets/stats-cards/PerformanceCard';
 import { PnlChart } from '../../widgets/pnl-chart/PnlChart';
+import { useT } from '../../shared/i18n';
 
 export function DashboardPage() {
   const candles = useMarketStore((s) => s.candles);
   const output = useMarketStore((s) => s.output);
   const timezone = useMarketStore((s) => s.timezone);
+  const t = useT();
 
   const today = resolvePeriod('today', timezone);
   const thisWeek = resolvePeriod('this_week', timezone);
@@ -47,10 +49,10 @@ export function DashboardPage() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <PerformanceCard title="Показатели за сегодня" stats={todayStats.data} loading={todayStats.isLoading} />
+          <PerformanceCard title={t('dashboard.today')} stats={todayStats.data} loading={todayStats.isLoading} />
         </Col>
         <Col xs={24} lg={12}>
-          <PerformanceCard title="Показатели за неделю" stats={weekStats.data} loading={weekStats.isLoading} />
+          <PerformanceCard title={t('dashboard.week')} stats={weekStats.data} loading={weekStats.isLoading} />
         </Col>
       </Row>
 

@@ -19,12 +19,3 @@ export async function getOrCreateDefaultUser(): Promise<string> {
   cachedUserId = created.id;
   return created.id;
 }
-
-export async function getAnalysisPaused(userId: string): Promise<boolean> {
-  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { analysisPaused: true } });
-  return user.analysisPaused;
-}
-
-export async function setAnalysisPaused(userId: string, paused: boolean): Promise<void> {
-  await prisma.user.update({ where: { id: userId }, data: { analysisPaused: paused } });
-}

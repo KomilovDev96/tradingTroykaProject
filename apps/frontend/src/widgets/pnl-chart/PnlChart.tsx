@@ -1,5 +1,6 @@
 import { Card, Empty } from 'antd';
 import type { PnlCurvePoint } from '../../entities/trade/model/types';
+import { useT } from '../../shared/i18n';
 
 interface PnlChartProps {
   data: PnlCurvePoint[] | undefined;
@@ -10,11 +11,12 @@ interface PnlChartProps {
 /** Section 36 — cumulative P&L curve, built strictly from real closed trades (never synthetic). */
 export function PnlChart({ data, loading, height = 220 }: PnlChartProps) {
   const points = data ?? [];
+  const t = useT();
 
   if (!loading && points.length === 0) {
     return (
-      <Card title="Кривая P&L">
-        <Empty description="Пока нет закрытых сделок" />
+      <Card title={t('pnl.title')}>
+        <Empty description={t('pnl.empty')} />
       </Card>
     );
   }
@@ -35,13 +37,13 @@ export function PnlChart({ data, loading, height = 220 }: PnlChartProps) {
   const lineColor = last && last.cumulative >= 0 ? '#3fb950' : '#f85149';
 
   return (
-    <Card title="Кривая P&L" loading={loading}>
-      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} role="img" aria-label="Накопленный P&L">
+    <Card title={t('pnl.title')} loading={loading}>
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} role="img" aria-label={t('pnl.aria')}>
         <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#30363d" strokeDasharray="4 4" />
         <path d={path} fill="none" stroke={lineColor} strokeWidth={2} />
         {points.map((p, i) => (
           <circle key={i} cx={xFor(i)} cy={yFor(p.cumulative)} r={2.5} fill={lineColor}>
-            <title>{`Сделка ${p.tradeIndex}: ${p.pnlPoints >= 0 ? '+' : ''}${p.pnlPoints.toFixed(2)} (накопительно ${p.cumulative.toFixed(2)})`}</title>
+            <title>{t('pnl.point', { n: p.tradeIndex, pnl: `${p.pnlPoints >= 0 ? '+' : ''}${p.pnlPoints.toFixed(2)}`, total: p.cumulative.toFixed(2) })}</title>
           </circle>
         ))}
       </svg>

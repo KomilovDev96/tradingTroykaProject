@@ -1,5 +1,4 @@
 import type { Direction, Trade } from '@prisma/client';
-import { Prisma } from '@prisma/client';
 import { prisma } from './prisma';
 
 export function buildSignalId(strategy: string, symbol: string, movementStartTime: number, direction: Direction) {
@@ -8,6 +7,7 @@ export function buildSignalId(strategy: string, symbol: string, movementStartTim
 
 export interface TradeDTO {
   id: string;
+  accountId: string | null;
   symbol: string;
   direction: 'BUY' | 'SELL';
   status: 'OPEN' | 'CLOSED' | 'STOP_LOSS';
@@ -38,6 +38,7 @@ export interface TradeDTO {
 function toDTO(trade: Trade): TradeDTO {
   return {
     id: trade.id,
+    accountId: trade.accountId,
     symbol: trade.symbol,
     direction: trade.direction,
     status: trade.status,
@@ -87,44 +88,41 @@ export interface CreateTradeParams {
   stopLoss: number;
 }
 
-/** Section 47: idempotent by signalId — a reconnect/duplicate tick can never create a second row. */
-export async function createTradeFromSignal(params: CreateTradeParams): Promise<TradeDTO> {
+/**
+ * Opens this signal's position for every given account in one statement. Section 47: idempotent
+ * per (signalId, account) — a retry or duplicate tick never creates a second row for anyone.
+ */
+export async function createTradesForSignal(params: CreateTradeParams, accountIds: string[]): Promise<number> {
   const signalId = buildSignalId(params.strategy, params.symbol, params.movementStartTime, params.direction);
-
-  try {
-    const trade = await prisma.trade.create({
-      data: {
-        userId: params.userId,
-        symbol: params.symbol,
-        direction: params.direction,
-        strategy: params.strategy,
-        timeframe: params.timeframe,
-        sessionId: params.sessionId,
-        rangeStart: new Date(params.rangeStart),
-        rangeEnd: new Date(params.rangeEnd),
-        highDemand: params.highDemand,
-        lowDemand: params.lowDemand,
-        rangePoints: params.rangePoints,
-        upperLevel: params.upperLevel,
-        lowerLevel: params.lowerLevel,
-        movementStartTime: new Date(params.movementStartTime),
-        movementStartPrice: params.movementStartPrice,
-        confirmationTime: new Date(params.confirmationTime),
-        entryPrice: params.entryPrice,
-        stopLoss: params.stopLoss,
-        signalId,
-      },
-    });
-    return toDTO(trade);
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      const existing = await prisma.trade.findUniqueOrThrow({ where: { signalId } });
-      return toDTO(existing);
-    }
-    throw err;
-  }
+  const { count } = await prisma.trade.createMany({
+    skipDuplicates: true,
+    data: accountIds.map((accountId) => ({
+      accountId,
+      userId: params.userId,
+      symbol: params.symbol,
+      direction: params.direction,
+      strategy: params.strategy,
+      timeframe: params.timeframe,
+      sessionId: params.sessionId,
+      rangeStart: new Date(params.rangeStart),
+      rangeEnd: new Date(params.rangeEnd),
+      highDemand: params.highDemand,
+      lowDemand: params.lowDemand,
+      rangePoints: params.rangePoints,
+      upperLevel: params.upperLevel,
+      lowerLevel: params.lowerLevel,
+      movementStartTime: new Date(params.movementStartTime),
+      movementStartPrice: params.movementStartPrice,
+      confirmationTime: new Date(params.confirmationTime),
+      entryPrice: params.entryPrice,
+      stopLoss: params.stopLoss,
+      signalId,
+    })),
+  });
+  return count;
 }
 
+/** A stop loss ends the movement for everyone still holding it. */
 export async function closeTradeByStopLoss(signalId: string, exitPrice: number, exitTime: number, pnlPoints: number) {
   const trade = await prisma.trade.updateMany({
     where: { signalId, status: 'OPEN' },
@@ -133,19 +131,27 @@ export async function closeTradeByStopLoss(signalId: string, exitPrice: number, 
   return trade.count > 0;
 }
 
-/** Section 30/31: a manual close is booked as PROFIT if it closed in the green, otherwise MANUAL_CLOSE. */
-export async function closeTradeManually(signalId: string, exitPrice: number, exitTime: number, pnlPoints: number) {
+/**
+ * Section 30/31: closes only this account's position, booked as PROFIT if it closed in the green,
+ * otherwise MANUAL_CLOSE. Everyone else keeps theirs.
+ */
+export async function closeTradeManually(signalId: string, accountId: string, exitPrice: number, exitTime: number, pnlPoints: number) {
   const result = pnlPoints > 0 ? 'PROFIT' : 'MANUAL_CLOSE';
   const trade = await prisma.trade.updateMany({
-    where: { signalId, status: 'OPEN' },
+    where: { signalId, accountId, status: 'OPEN' },
     data: { status: 'CLOSED', result, exitPrice, exitTime: new Date(exitTime), pnlPoints },
   });
   return trade.count > 0;
 }
 
-export async function getOpenTrades(symbol?: string): Promise<TradeDTO[]> {
+export async function countOpenTradesForSignal(signalId: string): Promise<number> {
+  return prisma.trade.count({ where: { signalId, status: 'OPEN' } });
+}
+
+/** Without `accountId`: every open row (used to restore the engine's position on boot). */
+export async function getOpenTrades(symbol?: string, accountId?: string): Promise<TradeDTO[]> {
   const trades = await prisma.trade.findMany({
-    where: { status: 'OPEN', ...(symbol ? { symbol } : {}) },
+    where: { status: 'OPEN', ...(symbol ? { symbol } : {}), ...(accountId ? { accountId } : {}) },
     orderBy: { createdAt: 'desc' },
   });
   return trades.map(toDTO);
@@ -159,6 +165,7 @@ export interface TradeFilters {
   result?: 'PROFIT' | 'STOP_LOSS' | 'MANUAL_CLOSE';
   status?: 'OPEN' | 'CLOSED' | 'STOP_LOSS';
   strategy?: string;
+  accountId?: string;
 }
 
 export async function listTrades(filters: TradeFilters): Promise<TradeDTO[]> {
@@ -169,6 +176,7 @@ export async function listTrades(filters: TradeFilters): Promise<TradeDTO[]> {
       ...(filters.result ? { result: filters.result } : {}),
       ...(filters.status ? { status: filters.status } : {}),
       ...(filters.strategy ? { strategy: filters.strategy } : {}),
+      ...(filters.accountId ? { accountId: filters.accountId } : {}),
       ...(filters.from || filters.to
         ? {
             createdAt: {
@@ -184,10 +192,11 @@ export async function listTrades(filters: TradeFilters): Promise<TradeDTO[]> {
 }
 
 /** Trades whose lifecycle (open or closed) touches the given window — used for statistics. */
-export async function getClosedTradesInRange(from: number, to: number, symbol?: string): Promise<TradeDTO[]> {
+export async function getClosedTradesInRange(from: number, to: number, symbol?: string, accountId?: string): Promise<TradeDTO[]> {
   const trades = await prisma.trade.findMany({
     where: {
       status: { not: 'OPEN' },
+      ...(accountId ? { accountId } : {}),
       exitTime: { gte: new Date(from), lte: new Date(to) },
       ...(symbol ? { symbol } : {}),
     },
@@ -196,10 +205,16 @@ export async function getClosedTradesInRange(from: number, to: number, symbol?: 
   return trades.map(toDTO);
 }
 
-export async function getAllClosedTrades(symbol?: string): Promise<TradeDTO[]> {
+export async function getAllClosedTrades(symbol?: string, accountId?: string): Promise<TradeDTO[]> {
   const trades = await prisma.trade.findMany({
-    where: { status: { not: 'OPEN' }, ...(symbol ? { symbol } : {}) },
+    where: { status: { not: 'OPEN' }, ...(symbol ? { symbol } : {}), ...(accountId ? { accountId } : {}) },
     orderBy: { exitTime: 'asc' },
   });
   return trades.map(toDTO);
+}
+
+/** accountId → number of positions it currently holds open. */
+export async function countOpenTradesByAccount(): Promise<Map<string, number>> {
+  const rows = await prisma.trade.groupBy({ by: ['accountId'], where: { status: 'OPEN', accountId: { not: null } }, _count: { _all: true } });
+  return new Map(rows.map((r) => [r.accountId as string, r._count._all]));
 }

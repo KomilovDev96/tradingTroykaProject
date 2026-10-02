@@ -13,8 +13,10 @@ import { resolvePeriod, type PeriodKey, type PeriodRange } from '../../shared/li
 import { SummaryStatCards } from '../../widgets/stats-cards/SummaryStatCards';
 import { ByDirectionStatsCard, DayOfWeekTable, StopLossStatsCard } from '../../widgets/stats-cards/BreakdownStats';
 import { PnlChart } from '../../widgets/pnl-chart/PnlChart';
+import { useT } from '../../shared/i18n';
 
 export function AnalyticsPage() {
+  const t = useT();
   const timezone = useMarketStore((s) => s.timezone);
   const [period, setPeriod] = useState<PeriodKey>('today');
   const [customRange, setCustomRange] = useState<PeriodRange>();
@@ -31,7 +33,7 @@ export function AnalyticsPage() {
     <Space orientation="vertical" size="large" className="page">
       <PeriodSelector period={period} onPeriodChange={setPeriod} customRange={customRange} onCustomRangeChange={setCustomRange} />
 
-      <SummaryStatCards title="Статистика" stats={summary.data} loading={summary.isLoading} />
+      <SummaryStatCards title={t('stats.title')} stats={summary.data} loading={summary.isLoading} />
       <ByDirectionStatsCard stats={byDirection.data} loading={byDirection.isLoading} />
       <StopLossStatsCard stats={stopLoss.data} loading={stopLoss.isLoading} />
       <DayOfWeekTable data={byDay.data} loading={byDay.isLoading} />

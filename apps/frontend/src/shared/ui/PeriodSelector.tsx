@@ -1,15 +1,9 @@
 import { DatePicker, Grid, Segmented, Select } from 'antd';
 import dayjs from 'dayjs';
 import type { PeriodKey, PeriodRange } from '../lib/period';
+import { useT } from '../i18n';
 
-const OPTIONS: { label: string; value: PeriodKey }[] = [
-  { label: 'Сегодня', value: 'today' },
-  { label: 'Вчера', value: 'yesterday' },
-  { label: 'Эта неделя', value: 'this_week' },
-  { label: 'Прошлая неделя', value: 'last_week' },
-  { label: 'Этот месяц', value: 'this_month' },
-  { label: 'Свой период', value: 'custom' },
-];
+const PERIODS: PeriodKey[] = ['today', 'yesterday', 'this_week', 'last_week', 'this_month', 'custom'];
 
 interface PeriodSelectorProps {
   period: PeriodKey;
@@ -21,13 +15,15 @@ interface PeriodSelectorProps {
 /** Section 43 — Today / Yesterday / This Week / Last Week / This Month / Custom Range. */
 export function PeriodSelector({ period, onPeriodChange, customRange, onCustomRangeChange }: PeriodSelectorProps) {
   const screens = Grid.useBreakpoint();
+  const t = useT();
+  const options = PERIODS.map((value) => ({ value, label: t(`period.${value}`) }));
 
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
       {screens.md ? (
-        <Segmented options={OPTIONS} value={period} onChange={(v) => onPeriodChange(v as PeriodKey)} />
+        <Segmented options={options} value={period} onChange={(v) => onPeriodChange(v as PeriodKey)} />
       ) : (
-        <Select options={OPTIONS} value={period} onChange={onPeriodChange} style={{ width: '100%' }} />
+        <Select options={options} value={period} onChange={onPeriodChange} style={{ width: '100%' }} />
       )}
       {period === 'custom' && (
         <DatePicker.RangePicker

@@ -284,3 +284,25 @@ DOMAIN=brokerkillers.uz
 **GitHub → Settings → Secrets and variables → Actions:** `DEPLOY_HOST` (server IP),
 `DEPLOY_USER` (SSH user), `DEPLOY_SSH_KEY` (private key whose public half is in that user's
 `~/.ssh/authorized_keys` on the server).
+
+## 9. Accounts, super admin, languages
+
+- **Sign-up** (`/register`): name in Latin letters, email, phone, password (8+). Login by email +
+  password. Sessions are an httpOnly cookie (30 days) backed by `AuthSession` rows (only a SHA-256
+  of the token is stored); passwords are scrypt hashes. 10 failed logins / 15 min per IP+email are
+  blocked. Everything except `/api/health` and `/api/auth/*` — including the `/ws` socket — needs a
+  session.
+- **Forgot password**: the user leaves their phone number (`POST /api/auth/forgot`); the request
+  shows up in the admin panel, where the super admin sets a new password (which signs that user out
+  everywhere). `SUPPORT_TELEGRAM_URL` in `apps/frontend/src/shared/config/support.ts` adds a
+  "write to Telegram" button once set.
+- **Per-account positions**: the strategy signal is shared, but each confirmed signal opens one
+  `Trade` per non-paused `USER` account. A stop loss closes everyone's; «Закрыть позицию» closes only
+  the caller's (its own exit price / P&L). The engine is released for the next signal once nobody
+  holds the position. «Остановить анализ» is per account (`Account.analysisPaused`).
+- **Super admin** (`SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` env, created or promoted on startup):
+  lands on `/admin` — overview (users, in profit / in loss, open positions, total P&L), users
+  table with search and filters, per-user stats and trades, create / edit / delete users, password
+  reset requests. API under `/api/admin/*`.
+- **Languages**: Русский (default), Ўзбекча (кирилл), Oʻzbekcha (lotin) — `apps/frontend/src/shared/i18n`.
+  Every key in `ru.ts` must exist in the Uzbek dictionaries (enforced by the `Dictionary` type).

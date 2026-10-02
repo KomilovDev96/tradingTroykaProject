@@ -1,5 +1,7 @@
 import { env } from './env';
-import { getAnalysisPaused, getOrCreateDefaultUser } from './db/userRepository';
+import { getOrCreateDefaultUser } from './db/userRepository';
+import { ensureSuperAdmin } from './db/accountRepository';
+import { hashPassword } from './auth/password';
 import { getOpenTrades } from './db/tradeRepository';
 import { EngineRunner } from './engine/runner';
 import { fetchCandles, streamPrices } from './marketdata/derivClient';
@@ -27,15 +29,20 @@ async function main() {
   runner.candleStore.seedFromHistory(history);
 
   // Section 46: restore an open position across backend restarts from Postgres, not memory.
-  const [openTrade] = await getOpenTrades(env.instrument);
+  // Only positions someone actually holds (legacy rows without an account are closed by migration).
+  const [openTrade] = (await getOpenTrades(env.instrument)).filter((t) => t.accountId !== null);
   if (openTrade) {
     console.log(`[troyka] Restoring open ${openTrade.direction} trade from ${new Date(openTrade.confirmationTime).toISOString()}`);
     runner.hydrateFromOpenTrade(openTrade);
   }
 
-  if (await getAnalysisPaused(userId)) {
-    console.log('[troyka] Analysis is paused (restored from Postgres) — no new signals until resumed.');
-    runner.restorePaused(true);
+  if (env.superAdminEmail) {
+    const password = env.superAdminPassword;
+    const outcome = await ensureSuperAdmin(env.superAdminEmail, async () => {
+      if (!password) throw new Error('SUPERADMIN_PASSWORD is required to create the super admin account');
+      return hashPassword(password);
+    });
+    console.log(`[troyka] Super admin ${env.superAdminEmail}: ${outcome}`);
   }
 
   const app = createApp(runner);

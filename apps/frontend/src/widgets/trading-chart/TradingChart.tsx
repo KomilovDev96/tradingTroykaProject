@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Grid } from 'antd';
+import { useT } from '../../shared/i18n';
 import {
   CandlestickSeries,
   ColorType,
@@ -30,6 +31,7 @@ interface TradingChartProps {
 
 export function TradingChart(props: TradingChartProps) {
   const screens = Grid.useBreakpoint();
+  const t = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -85,11 +87,11 @@ export function TradingChart(props: TradingChartProps) {
     priceLinesRef.current = [];
 
     const levels: Level[] = [
-      { price: props.highDemand, color: '#e0a800', title: 'МАКС. СПРОС' },
-      { price: props.lowDemand, color: '#e0a800', title: 'МИН. СПРОС' },
-      { price: props.upperLevel, color: '#58a6ff', title: 'ВЕРХНИЙ УРОВЕНЬ' },
-      { price: props.lowerLevel, color: '#58a6ff', title: 'НИЖНИЙ УРОВЕНЬ' },
-      { price: props.entryPrice, color: '#3fb950', title: 'ВХОД' },
+      { price: props.highDemand, color: '#e0a800', title: t('chart.highDemand') },
+      { price: props.lowDemand, color: '#e0a800', title: t('chart.lowDemand') },
+      { price: props.upperLevel, color: '#58a6ff', title: t('chart.upperLevel') },
+      { price: props.lowerLevel, color: '#58a6ff', title: t('chart.lowerLevel') },
+      { price: props.entryPrice, color: '#3fb950', title: t('chart.entry') },
       { price: props.stopLoss, color: '#f85149', title: 'STOP LOSS' },
     ];
 
@@ -105,7 +107,7 @@ export function TradingChart(props: TradingChartProps) {
       });
       priceLinesRef.current.push(line);
     }
-  }, [props.highDemand, props.lowDemand, props.upperLevel, props.lowerLevel, props.entryPrice, props.stopLoss]);
+  }, [props.highDemand, props.lowDemand, props.upperLevel, props.lowerLevel, props.entryPrice, props.stopLoss, t]);
 
   return <div ref={containerRef} style={{ width: '100%', height: screens.md ? 420 : 300 }} />;
 }

@@ -18,6 +18,16 @@ enum TradeStatus {
   STOP_LOSS
 }
 
+enum Role {
+  USER
+  SUPERADMIN
+}
+
+enum ResetRequestStatus {
+  OPEN
+  RESOLVED
+}
+
 enum TradeResult {
   PROFIT
   STOP_LOSS
@@ -30,9 +40,6 @@ model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   trades    Trade[]
-
-  /// «Остановить / Продолжить анализ» — survives backend restarts.
-  analysisPaused Boolean @default(false)
 }
 
 /// One row per confirmed 3H demand-range snapshot at the moment a signal was confirmed.
@@ -89,14 +96,71 @@ model Trade {
   pnlPoints Decimal?
   result    TradeResult?
 
-  /// Dedup key for section 47: one confirmed movement can only ever create one trade,
-  /// even across WebSocket reconnects/backend restarts.
-  signalId String @unique
+  /// The account this position belongs to: every confirmed signal opens one row per
+  /// non-paused account. Null only for rows recorded before accounts existed.
+  accountId String?
+  account   Account? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  /// Identifies the confirmed movement (strategy|symbol|movementStartTime|direction).
+  /// Section 47 dedup: one movement opens at most one position per account.
+  signalId String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([signalId, accountId])
+  @@index([accountId, status])
+  @@index([signalId, status])
   @@index([symbol, status])
   @@index([createdAt])
   @@index([direction])
+}
+
+/// A person who can sign in to the dashboard. Separate from `User`, which is the single
+/// system owner of trades and the analysis-paused flag — the analysis is shared by everyone.
+model Account {
+  id             String                 @id @default(cuid())
+  /// Latin letters only (validated in src/auth/validation.ts).
+  name           String
+  /// Stored lower-cased.
+  email          String                 @unique
+  /// "+" and digits only. Required at sign-up; null only for the bootstrapped super admin.
+  phone          String?                @unique
+  /// scrypt$<salt>$<key> — see src/auth/password.ts.
+  passwordHash   String
+  role           Role                   @default(USER)
+  /// «Остановить анализ» is per account: a paused account gets no new positions.
+  analysisPaused Boolean                @default(false)
+  lastLoginAt    DateTime?
+  createdAt      DateTime               @default(now())
+  sessions       AuthSession[]
+  trades         Trade[]
+  resetRequests  PasswordResetRequest[]
+}
+
+/// «Забыли пароль»: the user leaves their phone number; the super admin sets a new password
+/// from the admin panel. Linked to an account when the phone matches one.
+model PasswordResetRequest {
+  id         String             @id @default(cuid())
+  phone      String
+  accountId  String?
+  account    Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  status     ResetRequestStatus @default(OPEN)
+  createdAt  DateTime           @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+/// Server-side login session. Only a SHA-256 of the cookie token is stored, so a DB leak
+/// can't be replayed as a login; deleting the row logs that browser out immediately.
+model AuthSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([accountId])
 }

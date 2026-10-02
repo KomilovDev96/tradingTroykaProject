@@ -1,22 +1,15 @@
-import { useMutation } from '@tanstack/react-query';
-import { BACKEND_HTTP_URL } from '../../../shared/api/config';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { postJson } from '../../../shared/api/httpClient';
 
-const ERROR_TRANSLATIONS: Record<string, string> = {
-  'Engine has no data yet': 'Движок ещё не получил данные',
-  'No active position to close': 'Нет активной позиции для закрытия',
-};
-
-async function closePosition() {
-  const res = await fetch(`${BACKEND_HTTP_URL}/api/close-position`, { method: 'POST' });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const raw: string | undefined = body.error;
-    throw new Error((raw && ERROR_TRANSLATIONS[raw]) ?? raw ?? `Запрос не выполнен (${res.status})`);
-  }
-  return res.json();
-}
-
-/** Section 10: manual "Закрыть анализ / Позиция закрыта" action. Never sends a real order. */
+/**
+ * Section 10: «Закрыть позицию» closes only this account's position (never a real order).
+ * Other accounts keep theirs, so no shared WebSocket event fires — refresh our own lists here.
+ */
 export function useClosePosition() {
-  return useMutation({ mutationFn: closePosition });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => postJson('/api/close-position'),
+    onSettled: () =>
+      queryClient.invalidateQueries({ predicate: (q) => ['open-trades', 'trades', 'stats'].includes(q.queryKey[0] as string) }),
+  });
 }

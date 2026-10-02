@@ -6,9 +6,16 @@ import {
   type EngineOutput,
   type StrategyEngineState,
 } from '@troyka/strategy-engine';
+import { listAccountIdsForNewPositions } from '../db/accountRepository';
 import { createTradingSession } from '../db/sessionRepository';
-import { buildSignalId, closeTradeByStopLoss, closeTradeManually, createTradeFromSignal, type TradeDTO } from '../db/tradeRepository';
-import { setAnalysisPaused } from '../db/userRepository';
+import {
+  buildSignalId,
+  closeTradeByStopLoss,
+  closeTradeManually,
+  countOpenTradesForSignal,
+  createTradesForSignal,
+  type TradeDTO,
+} from '../db/tradeRepository';
 import { CandleStore } from '../marketdata/candleStore';
 
 export interface EngineRunnerConfig {
@@ -18,8 +25,8 @@ export interface EngineRunnerConfig {
   timeframe: string;
 }
 
-interface PendingClose {
-  kind: 'STOP_LOSS' | 'MANUAL_CLOSE';
+/** A stop loss the engine already applied but Postgres hasn't recorded yet. */
+interface PendingStopLoss {
   /** DB signalId, not the engine's. */
   signalId: string;
   exitPrice: number;
@@ -28,25 +35,23 @@ interface PendingClose {
 }
 
 /**
- * Owns the one, server-side instance of the strategy engine for an instrument, and persists
- * every confirmed signal / exit as a Trade row (sections 27-41). Running it here (not in the
- * browser) is what lets open positions survive a frontend reload AND, via hydrateFromOpenTrade,
- * a full backend restart (section 46) — PostgreSQL, not in-memory state, is the source of truth.
+ * Owns the one, server-side instance of the strategy engine for an instrument. The engine's
+ * signal is shared by everyone; each confirmed signal opens one Trade row per non-paused
+ * account (sections 27-41). A stop loss closes all of them; a manual close only the caller's,
+ * and the engine is released for the next signal once nobody holds the position any more.
+ * PostgreSQL, not in-memory state, is the source of truth (section 46).
  */
 export class EngineRunner {
   private state: StrategyEngineState = createInitialState();
   private latest: EngineOutput | null = null;
-  /** DB signalId (strategy|symbol|movementStartTime|direction) of the currently open trade, if any. */
+  /** DB signalId (strategy|symbol|movementStartTime|direction) of the engine's current position, if any. */
   private openTradeSignalId: string | null = null;
-  /** Exits the engine already applied but Postgres hasn't recorded yet — retried until they land. */
-  private pendingCloses: PendingClose[] = [];
+  private pendingStopLosses: PendingStopLoss[] = [];
   /**
    * Ticks and manual closes run strictly one at a time: each finishes its DB writes before the
-   * next one reads engine state, so a stop loss can never race ahead of its own trade's INSERT.
+   * next one reads engine state, so a stop loss can never race ahead of its own trades' INSERT.
    */
   private queue: Promise<unknown> = Promise.resolve();
-  /** User-controlled "stop/continue analysis", persisted on the User row (see restorePaused). */
-  private paused = false;
   readonly candleStore = new CandleStore();
 
   constructor(
@@ -54,7 +59,7 @@ export class EngineRunner {
     private readonly onUpdate: (output: EngineOutput) => void,
   ) {}
 
-  /** Section 46: rebuild in-memory engine state from the one open Trade row, if any. */
+  /** Section 46: rebuild the engine's position from any still-open Trade row of the signal. */
   hydrateFromOpenTrade(trade: TradeDTO) {
     this.openTradeSignalId = trade.signalId ?? buildSignalId(trade.strategy, trade.symbol, trade.movementStartTime, trade.direction);
     this.state = {
@@ -88,26 +93,32 @@ export class EngineRunner {
   }
 
   private async processTick(currentPrice: number, currentTime: number) {
-    await this.flushPendingCloses();
+    await this.flushPendingStopLosses();
 
     this.candleStore.applyTick({ time: currentTime, price: currentPrice });
-    const result = step(this.state, { currentPrice, currentTime, candles: this.candleStore.getCandles(), paused: this.paused });
+    const result = step(this.state, { currentPrice, currentTime, candles: this.candleStore.getCandles() });
 
     for (const event of result.output.events) {
       if (event.type === 'SIGNAL_CONFIRMED') {
         try {
-          const trade = await this.persistSignal(event, result.output);
-          this.openTradeSignalId = trade.signalId;
+          await this.persistSignal(event, result.output);
         } catch (err) {
           // Section 46: Postgres is the source of truth — never hold a position it doesn't know about.
           // Drop this step entirely; the next tick re-evaluates the same closed candles and retries
-          // (createTradeFromSignal is idempotent by signalId, so a half-applied attempt is safe).
+          // (createTradesForSignal is idempotent per signal and account, so a half-applied attempt is safe).
           console.error('[troyka] Failed to persist confirmed signal, will retry on next tick:', err);
           return;
         }
+        this.openTradeSignalId = buildSignalId(this.config.strategy, this.config.symbol, event.movementStartTime, event.direction);
+        // Nobody received it (everyone paused, or no users yet): don't let an unowned position
+        // block the next signal — release it right away.
+        if ((await countOpenTradesForSignal(this.openTradeSignalId)) === 0) {
+          result.state = closeActivePosition(result.state, currentPrice, currentTime).state;
+          result.output = { ...result.output, phase: result.state.phase, signal: 'WAIT', entryPrice: null, stopLoss: null, state: result.state };
+          this.openTradeSignalId = null;
+        }
       } else if (event.type === 'STOP_LOSS_HIT' && this.openTradeSignalId) {
-        this.pendingCloses.push({
-          kind: 'STOP_LOSS',
+        this.pendingStopLosses.push({
           signalId: this.openTradeSignalId,
           exitPrice: event.exitPrice,
           exitTime: event.exitTime,
@@ -119,11 +130,11 @@ export class EngineRunner {
 
     this.state = result.state;
     this.latest = result.output;
-    await this.flushPendingCloses();
+    await this.flushPendingStopLosses();
     this.onUpdate(result.output);
   }
 
-  private persistSignal(event: Extract<EngineEvent, { type: 'SIGNAL_CONFIRMED' }>, output: EngineOutput) {
+  private async persistSignal(event: Extract<EngineEvent, { type: 'SIGNAL_CONFIRMED' }>, output: EngineOutput) {
     const range = {
       rangeStart: output.rangeStart,
       rangeEnd: output.rangeEnd,
@@ -134,8 +145,10 @@ export class EngineRunner {
       lowerLevel: output.lowerLevel!,
     };
 
-    return createTradingSession(this.config.symbol, this.config.strategy, range).then((session) =>
-      createTradeFromSignal({
+    const session = await createTradingSession(this.config.symbol, this.config.strategy, range);
+    const accountIds = await listAccountIdsForNewPositions();
+    await createTradesForSignal(
+      {
         userId: this.config.userId,
         symbol: this.config.symbol,
         strategy: this.config.strategy,
@@ -148,72 +161,51 @@ export class EngineRunner {
         confirmationTime: event.confirmationTime,
         entryPrice: event.entryPrice,
         stopLoss: event.stopLoss,
-      }),
+      },
+      accountIds,
     );
   }
 
   /** The engine already exited the position; keep retrying the DB write until it lands, in order. */
-  private async flushPendingCloses() {
-    while (this.pendingCloses.length > 0) {
-      const close = this.pendingCloses[0];
+  private async flushPendingStopLosses() {
+    while (this.pendingStopLosses.length > 0) {
+      const close = this.pendingStopLosses[0];
       try {
-        if (close.kind === 'STOP_LOSS') {
-          await closeTradeByStopLoss(close.signalId, close.exitPrice, close.exitTime, close.pnlPoints);
-        } else {
-          await closeTradeManually(close.signalId, close.exitPrice, close.exitTime, close.pnlPoints);
-        }
+        await closeTradeByStopLoss(close.signalId, close.exitPrice, close.exitTime, close.pnlPoints);
       } catch (err) {
-        console.error('[troyka] Failed to record trade exit, will retry on next tick:', err);
+        console.error('[troyka] Failed to record stop loss, will retry on next tick:', err);
         return;
       }
-      this.pendingCloses.shift();
+      this.pendingStopLosses.shift();
     }
   }
 
-  closePosition(currentPrice: number, currentTime: number) {
-    return this.enqueue(async () => {
-      const { state, event } = closeActivePosition(this.state, currentPrice, currentTime);
-      this.state = state;
-      if (event && event.type === 'MANUAL_CLOSE' && this.openTradeSignalId) {
-        this.pendingCloses.push({
-          kind: 'MANUAL_CLOSE',
-          signalId: this.openTradeSignalId,
-          exitPrice: event.exitPrice,
-          exitTime: event.exitTime,
-          pnlPoints: event.pnlPoints,
-        });
-        this.openTradeSignalId = null;
-        await this.flushPendingCloses();
-      }
-      return event;
-    });
-  }
-
-  /** Boot-time only, before the first tick: apply the paused flag already stored in Postgres. */
-  restorePaused(paused: boolean) {
-    this.paused = paused;
-  }
-
   /**
-   * Persists first, so a failed DB write leaves the analysis in its previous mode.
-   * Then re-steps at the last tick's own price/time (so no candle closes and no stop loss is
-   * re-evaluated at a new price) just to push the new phase to clients immediately.
+   * «Закрыть позицию» for one account. Returns null when that account holds no open position.
+   * When the last holder closes, the engine's own position is released so the next signal can fire.
    */
-  setPaused(paused: boolean) {
+  closePositionFor(accountId: string, currentPrice: number, currentTime: number) {
     return this.enqueue(async () => {
-      await setAnalysisPaused(this.config.userId, paused);
-      this.paused = paused;
-      if (!this.latest) return null;
-      const result = step(this.state, {
-        currentPrice: this.latest.currentPrice,
-        currentTime: this.latest.rangeEnd,
-        candles: this.candleStore.getCandles(),
-        paused,
-      });
-      this.state = result.state;
-      this.latest = result.output;
-      this.onUpdate(result.output);
-      return result.output;
+      const position = this.state.activePosition;
+      const signalId = this.openTradeSignalId;
+      if (!position || !signalId) return null;
+
+      const pnlPoints = position.direction === 'BUY' ? currentPrice - position.entryPrice : position.entryPrice - currentPrice;
+      const closed = await closeTradeManually(signalId, accountId, currentPrice, currentTime, pnlPoints);
+      if (!closed) return null;
+
+      if ((await countOpenTradesForSignal(signalId)) === 0) {
+        this.state = closeActivePosition(this.state, currentPrice, currentTime).state;
+        this.openTradeSignalId = null;
+        if (this.latest) {
+          // Same price/time as the last tick: just republishes the released (CLOSED) phase.
+          const result = step(this.state, { currentPrice: this.latest.currentPrice, currentTime: this.latest.rangeEnd, candles: this.candleStore.getCandles() });
+          this.state = result.state;
+          this.latest = result.output;
+          this.onUpdate(result.output);
+        }
+      }
+      return { exitPrice: currentPrice, exitTime: currentTime, pnlPoints };
     });
   }
 

@@ -1,34 +1,30 @@
 import { useState } from 'react';
-import { Button, Card, DatePicker, Select, Space, Table, Tag } from 'antd';
+import { Button, Card, DatePicker, Select, Space, Table } from 'antd';
 import { useTradesQuery } from '../../entities/trade/api/queries';
 import type { TradeDTO, TradeFilters } from '../../entities/trade/model/types';
 import { exportTradesCsv } from '../../features/export-trades/model/useExportTrades';
-import { useMarketStore } from '../../entities/market/model/store';
-import { formatDateTime } from '../../shared/lib/time';
-
-const RESULT_COLOR: Record<string, string> = { PROFIT: 'success', STOP_LOSS: 'error', MANUAL_CLOSE: 'default' };
-const RESULT_LABEL: Record<string, string> = { PROFIT: 'ПРИБЫЛЬ', STOP_LOSS: 'СТОП-ЛОСС', MANUAL_CLOSE: 'ЗАКРЫТО ВРУЧНУЮ' };
-const STATUS_COLOR: Record<string, string> = { OPEN: 'processing', CLOSED: 'default', STOP_LOSS: 'error' };
-const STATUS_LABEL: Record<string, string> = { OPEN: 'ОТКРЫТА', CLOSED: 'ЗАКРЫТА', STOP_LOSS: 'СТОП-ЛОСС' };
+import { useT } from '../../shared/i18n';
+import { useTradeHistoryColumns } from './useTradeHistoryColumns';
 
 export function TradeHistoryTable() {
-  const timezone = useMarketStore((s) => s.timezone);
   const [filters, setFilters] = useState<TradeFilters>({});
+  const t = useT();
+  const columns = useTradeHistoryColumns();
 
   const { data: trades = [], isLoading } = useTradesQuery(filters);
 
   return (
     <Card
-      title="История сделок"
+      title={t('trades.history')}
       extra={
         <Button size="small" onClick={() => exportTradesCsv(filters)}>
-          Экспорт в CSV
+          {t('trades.exportCsv')}
         </Button>
       }
     >
       <Space wrap style={{ marginBottom: 16 }}>
         <DatePicker.RangePicker
-          placeholder={['Дата с', 'Дата по']}
+          placeholder={[t('trades.dateFrom'), t('trades.dateTo')]}
           onChange={(range) =>
             setFilters((f) => ({
               ...f,
@@ -39,7 +35,7 @@ export function TradeHistoryTable() {
         />
         <Select
           allowClear
-          placeholder="Направление"
+          placeholder={t('trades.colDirection')}
           style={{ width: 140 }}
           options={[
             { value: 'BUY', label: 'BUY' },
@@ -49,23 +45,23 @@ export function TradeHistoryTable() {
         />
         <Select
           allowClear
-          placeholder="Результат"
+          placeholder={t('trades.colResult')}
           style={{ width: 180 }}
           options={[
-            { value: 'PROFIT', label: 'ПРИБЫЛЬ' },
-            { value: 'STOP_LOSS', label: 'СТОП-ЛОСС' },
-            { value: 'MANUAL_CLOSE', label: 'ЗАКРЫТО ВРУЧНУЮ' },
+            { value: 'PROFIT', label: t('result.PROFIT') },
+            { value: 'STOP_LOSS', label: t('result.STOP_LOSS') },
+            { value: 'MANUAL_CLOSE', label: t('result.MANUAL_CLOSE') },
           ]}
           onChange={(v) => setFilters((f) => ({ ...f, result: v }))}
         />
         <Select
           allowClear
-          placeholder="Статус"
+          placeholder={t('trades.colStatus')}
           style={{ width: 160 }}
           options={[
-            { value: 'OPEN', label: 'ОТКРЫТА' },
-            { value: 'CLOSED', label: 'ЗАКРЫТА' },
-            { value: 'STOP_LOSS', label: 'СТОП-ЛОСС' },
+            { value: 'OPEN', label: t('status.OPEN') },
+            { value: 'CLOSED', label: t('status.CLOSED') },
+            { value: 'STOP_LOSS', label: t('status.STOP_LOSS') },
           ]}
           onChange={(v) => setFilters((f) => ({ ...f, status: v }))}
         />
@@ -78,26 +74,8 @@ export function TradeHistoryTable() {
         loading={isLoading}
         dataSource={trades}
         pagination={{ pageSize: 15 }}
-        locale={{ emptyText: 'Нет данных' }}
-        columns={[
-          { title: 'Дата', dataIndex: 'createdAt', render: (t: number) => formatDateTime(t, timezone) },
-          { title: 'Символ', dataIndex: 'symbol' },
-          { title: 'Направление', dataIndex: 'direction', render: (d: string) => <Tag color={d === 'BUY' ? 'success' : 'error'}>{d}</Tag> },
-          { title: 'Вход', dataIndex: 'entryPrice', render: (v: number) => v.toFixed(2) },
-          { title: 'Выход', dataIndex: 'exitPrice', render: (v?: number) => (v !== null && v !== undefined ? v.toFixed(2) : '—') },
-          { title: 'SL', dataIndex: 'stopLoss', render: (v: number) => v.toFixed(2) },
-          {
-            title: 'P&L',
-            dataIndex: 'pnlPoints',
-            render: (v?: number) => (v !== null && v !== undefined ? <span style={{ color: v >= 0 ? '#3fb950' : '#f85149' }}>{v.toFixed(2)}</span> : '—'),
-          },
-          { title: 'Статус', dataIndex: 'status', render: (s: string) => <Tag color={STATUS_COLOR[s]}>{STATUS_LABEL[s] ?? s}</Tag> },
-          {
-            title: 'Результат',
-            dataIndex: 'result',
-            render: (r?: string) => (r ? <Tag color={RESULT_COLOR[r]}>{RESULT_LABEL[r] ?? r}</Tag> : '—'),
-          },
-        ]}
+        locale={{ emptyText: t('trades.noData') }}
+        columns={columns}
       />
     </Card>
   );
