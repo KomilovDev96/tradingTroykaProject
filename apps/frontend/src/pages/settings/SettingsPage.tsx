@@ -3,6 +3,7 @@ import { useMarketStore } from '../../entities/market/model/store';
 import { BACKEND_HTTP_URL, BACKEND_WS_URL } from '../../shared/api/config';
 import { BROWSER_TIMEZONE } from '../../shared/lib/time';
 import { useMeQuery } from '../../entities/session/api/session';
+import { ChangePasswordButton } from '../../features/change-password/ui/ChangePasswordButton';
 import { useT, type TranslationKey } from '../../shared/i18n';
 
 const TIMEZONE_OPTIONS = Array.from(
@@ -20,7 +21,7 @@ export function SettingsPage() {
 
   return (
     <Space orientation="vertical" size="large" className="page">
-      <Card title={t('settings.title')}>
+      <Card title={t('settings.title')} extra={<ChangePasswordButton />}>
         <Descriptions column={1} bordered size="small" layout={screens.sm ? 'horizontal' : 'vertical'}>
           <Descriptions.Item label={t('settings.account')}>
             {me ? `${me.name} · ${me.email}${me.phone ? ` · ${me.phone}` : ''}` : '—'}
