@@ -244,4 +244,11 @@ export const uzLatn: Dictionary = {
   'admin.markResolved': 'Hal qilindi',
   'admin.noResets': 'Arizalar yoʻq',
   'admin.never': 'hech qachon',
+
+  'account.changePassword': 'Parolni oʻzgartirish',
+  'account.currentPassword': 'Joriy parol',
+  'account.confirmPassword': 'Yangi parolni takrorlang',
+  'account.passwordMismatch': 'Parollar mos kelmadi',
+  'account.passwordChanged': 'Parol oʻzgartirildi. Boshqa qurilmalardan chiqildi.',
+  'error.WRONG_CURRENT_PASSWORD': 'Joriy parol notoʻgʻri',
 };

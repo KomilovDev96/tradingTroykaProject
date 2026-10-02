@@ -7,6 +7,7 @@ export type AuthErrorCode =
   | 'EMAIL_TAKEN'
   | 'PHONE_TAKEN'
   | 'INVALID_CREDENTIALS'
+  | 'WRONG_CURRENT_PASSWORD'
   | 'TOO_MANY_ATTEMPTS'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN';
@@ -46,7 +47,7 @@ function checkPhone(raw: unknown): Field<string> {
   return phone ? { ok: true, value: phone } : { ok: false, error: 'PHONE_INVALID' };
 }
 
-function checkPassword(raw: unknown): Field<string> {
+export function checkPassword(raw: unknown): Field<string> {
   const password = typeof raw === 'string' ? raw : '';
   return password.length >= MIN_PASSWORD_LENGTH && password.length <= MAX_PASSWORD_LENGTH
     ? { ok: true, value: password }

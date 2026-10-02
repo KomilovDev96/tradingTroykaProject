@@ -244,4 +244,11 @@ export const uzCyrl: Dictionary = {
   'admin.markResolved': 'Ҳал қилинди',
   'admin.noResets': 'Аризалар йўқ',
   'admin.never': 'ҳеч қачон',
+
+  'account.changePassword': 'Паролни ўзгартириш',
+  'account.currentPassword': 'Жорий парол',
+  'account.confirmPassword': 'Янги паролни такрорланг',
+  'account.passwordMismatch': 'Пароллар мос келмади',
+  'account.passwordChanged': 'Парол ўзгартирилди. Бошқа қурилмалардан чиқилди.',
+  'error.WRONG_CURRENT_PASSWORD': 'Жорий парол нотўғри',
 };

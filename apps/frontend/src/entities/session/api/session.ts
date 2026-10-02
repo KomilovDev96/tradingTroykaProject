@@ -52,6 +52,13 @@ export function useRegister() {
   });
 }
 
+/** Change your own password (current one required). Other browsers are signed out, this one stays. */
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (input: { currentPassword: string; newPassword: string }) => postJson<{ ok: true }>('/api/me/password', input),
+  });
+}
+
 /** «Забыли пароль»: leaves the phone number for the administration. */
 export function useForgotPassword() {
   return useMutation({ mutationFn: (phone: string) => postJson<{ ok: true }>('/api/auth/forgot', { phone }) });

@@ -242,6 +242,13 @@ export const ru = {
   'admin.markResolved': 'Решено',
   'admin.noResets': 'Заявок нет',
   'admin.never': 'никогда',
+
+  'account.changePassword': 'Сменить пароль',
+  'account.currentPassword': 'Текущий пароль',
+  'account.confirmPassword': 'Повторите новый пароль',
+  'account.passwordMismatch': 'Пароли не совпадают',
+  'account.passwordChanged': 'Пароль изменён. На других устройствах выполнен выход.',
+  'error.WRONG_CURRENT_PASSWORD': 'Текущий пароль неверный',
 } as const;
 
 export type TranslationKey = keyof typeof ru;

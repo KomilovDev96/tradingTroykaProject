@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAdminDashboard, type AdminUser } from '../../entities/admin/api/admin';
 import { useLogout, useMeQuery } from '../../entities/session/api/session';
+import { ChangePasswordButton } from '../../features/change-password/ui/ChangePasswordButton';
 import { LanguageSelect } from '../../features/switch-language/ui/LanguageSelect';
 import { useT } from '../../shared/i18n';
 import { AdminOverviewCards } from '../../widgets/admin/AdminOverviewCards';
@@ -40,6 +41,7 @@ export function AdminPage() {
             <Button size="small">{t('nav.dashboard')}</Button>
           </Link>
           <LanguageSelect />
+          <ChangePasswordButton />
           <Button size="small" loading={logout.isPending} onClick={() => logout.mutate(undefined, { onSettled: () => navigate('/login', { replace: true }) })}>
             {t('auth.logout')}
           </Button>

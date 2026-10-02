@@ -10,13 +10,15 @@ import { Hub } from './ws/hub';
 import { hashPassword, verifyPassword } from './auth/password';
 import { AttemptLimiter } from './auth/rateLimit';
 import { authenticate, clearSessionCookie, readCookie, requireAuth, SESSION_COOKIE, setSessionCookie } from './auth/session';
-import { normalizeEmail, normalizePhone, validateRegistration } from './auth/validation';
+import { checkPassword, normalizeEmail, normalizePhone, validateRegistration } from './auth/validation';
 import {
   createAccount,
   createResetRequest,
+  changeOwnPassword,
   createSession,
   deleteSession,
   findAccountByEmail,
+  findAccountWithPasswordById,
   setAccountPaused,
   touchLastLogin,
   type AccountDTO,
@@ -189,6 +191,31 @@ export function createApp(runner: EngineRunner) {
 
   app.post('/api/me/resume', route(async (_req, res) => {
     res.json({ account: await setAccountPaused(accountOf(res).id, false) });
+  }));
+
+  /** Change your own password: requires the current one; other browsers are signed out, this one stays. */
+  app.post('/api/me/password', route(async (req, res) => {
+    const account = accountOf(res);
+    const key = `password|${account.id}`;
+    if (loginLimiter.isBlocked(key)) {
+      res.status(429).json({ error: 'TOO_MANY_ATTEMPTS' });
+      return;
+    }
+    const next = checkPassword(req.body?.newPassword);
+    if (!next.ok) {
+      res.status(400).json({ error: next.error });
+      return;
+    }
+    const stored = await findAccountWithPasswordById(account.id);
+    const current = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
+    if (!stored || !(await verifyPassword(current, stored.passwordHash))) {
+      loginLimiter.recordFailure(key);
+      res.status(400).json({ error: 'WRONG_CURRENT_PASSWORD' });
+      return;
+    }
+    loginLimiter.reset(key);
+    await changeOwnPassword(account.id, await hashPassword(next.value), readCookie(req, SESSION_COOKIE));
+    res.json({ ok: true });
   }));
 
   app.get('/api/trades/open', route(async (_req, res) => {

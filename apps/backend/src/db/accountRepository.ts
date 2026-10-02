@@ -56,6 +56,20 @@ export function findAccountByEmail(email: string) {
   return prisma.account.findUnique({ where: { email } });
 }
 
+export function findAccountWithPasswordById(id: string) {
+  return prisma.account.findUnique({ where: { id }, select: { id: true, passwordHash: true } });
+}
+
+/** Sets a new password and signs out every other browser; the session `keepToken` belongs to stays. */
+export async function changeOwnPassword(accountId: string, passwordHash: string, keepToken: string | null): Promise<void> {
+  await prisma.$transaction([
+    prisma.account.update({ where: { id: accountId }, data: { passwordHash } }),
+    prisma.authSession.deleteMany({
+      where: { accountId, ...(keepToken ? { tokenHash: { not: hashToken(keepToken) } } : {}) },
+    }),
+  ]);
+}
+
 export function findAccountByPhone(phone: string) {
   return prisma.account.findUnique({ where: { phone }, select: { id: true } });
 }
