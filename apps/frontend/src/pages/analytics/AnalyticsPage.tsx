@@ -28,7 +28,7 @@ export function AnalyticsPage() {
   const pnlCurve = usePnlCurveQuery();
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%', padding: 24 }}>
+    <Space orientation="vertical" size="large" className="page">
       <PeriodSelector period={period} onPeriodChange={setPeriod} customRange={customRange} onCustomRangeChange={setCustomRange} />
 
       <SummaryStatCards title="Статистика" stats={summary.data} loading={summary.isLoading} />

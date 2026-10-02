@@ -77,7 +77,7 @@ export function MarketHeader() {
         <div>
           <Typography.Text type="secondary">Часовой пояс</Typography.Text>
           <div>
-            <Select size="small" style={{ width: 200 }} value={timezone} onChange={setTimezone} options={TIMEZONE_OPTIONS} />
+            <Select size="small" style={{ width: 200, maxWidth: '100%' }} value={timezone} onChange={setTimezone} options={TIMEZONE_OPTIONS} />
           </div>
         </div>
       </Space>

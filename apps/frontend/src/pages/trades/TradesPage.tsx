@@ -4,7 +4,7 @@ import { TradeHistoryTable } from '../../widgets/trade-history-table/TradeHistor
 
 export function TradesPage() {
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%', padding: 24 }}>
+    <Space orientation="vertical" size="large" className="page">
       <OpenTrades />
       <TradeHistoryTable />
     </Space>

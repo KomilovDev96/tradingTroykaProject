@@ -1,4 +1,4 @@
-import { DatePicker, Segmented } from 'antd';
+import { DatePicker, Grid, Segmented, Select } from 'antd';
 import dayjs from 'dayjs';
 import type { PeriodKey, PeriodRange } from '../lib/period';
 
@@ -20,9 +20,15 @@ interface PeriodSelectorProps {
 
 /** Section 43 — Today / Yesterday / This Week / Last Week / This Month / Custom Range. */
 export function PeriodSelector({ period, onPeriodChange, customRange, onCustomRangeChange }: PeriodSelectorProps) {
+  const screens = Grid.useBreakpoint();
+
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-      <Segmented options={OPTIONS} value={period} onChange={(v) => onPeriodChange(v as PeriodKey)} />
+      {screens.md ? (
+        <Segmented options={OPTIONS} value={period} onChange={(v) => onPeriodChange(v as PeriodKey)} />
+      ) : (
+        <Select options={OPTIONS} value={period} onChange={onPeriodChange} style={{ width: '100%' }} />
+      )}
       {period === 'custom' && (
         <DatePicker.RangePicker
           value={customRange ? [dayjs(customRange.from), dayjs(customRange.to)] : undefined}

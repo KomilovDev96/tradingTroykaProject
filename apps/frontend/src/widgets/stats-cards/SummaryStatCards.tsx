@@ -6,28 +6,28 @@ export function SummaryStatCards({ title, stats, loading }: { title: string; sta
   return (
     <Card title={title} loading={loading}>
       <Row gutter={[16, 16]}>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Сделки" value={stats?.trades ?? 0} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Прибыль" value={stats?.profit ?? 0} valueStyle={{ color: '#3fb950' }} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Stop Loss" value={stats?.stopLoss ?? 0} valueStyle={{ color: '#f85149' }} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Закрыто вручную" value={stats?.manualClose ?? 0} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Процент побед" value={stats?.winRate ?? 0} precision={1} suffix="%" />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Пункты прибыли" value={stats?.profitPoints ?? 0} precision={2} valueStyle={{ color: '#3fb950' }} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Пункты убытка" value={stats?.lossPoints ?? 0} precision={2} valueStyle={{ color: '#f85149' }} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic
             title="Итог"
             value={stats?.net ?? 0}

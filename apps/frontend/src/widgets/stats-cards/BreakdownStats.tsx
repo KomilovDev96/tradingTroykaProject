@@ -17,7 +17,7 @@ export function ByDirectionStatsCard({ stats, loading }: { stats: ByDirectionSta
     <Card title="Разбивка по BUY / SELL" loading={loading}>
       <Row gutter={[16, 16]}>
         {(['BUY', 'SELL'] as const).map((dir) => (
-          <Col span={12} key={dir}>
+          <Col xs={24} md={12} key={dir}>
             <Card size="small" type="inner" title={dir}>
               <Row gutter={8}>
                 <Col span={12}>
@@ -54,19 +54,19 @@ export function StopLossStatsCard({ stats, loading }: { stats: StopLossStats | u
   return (
     <Card title="Статистика Stop Loss" loading={loading}>
       <Row gutter={[16, 16]}>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Всего Stop Loss" value={stats?.total ?? 0} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Stop Loss по BUY" value={stats?.buy ?? 0} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Stop Loss по SELL" value={stats?.sell ?? 0} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Средний убыток" value={stats?.avgLoss ?? 0} precision={2} valueStyle={{ color: '#f85149' }} />
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Statistic title="Максимальный убыток" value={stats?.maxLoss ?? 0} precision={2} valueStyle={{ color: '#f85149' }} />
         </Col>
       </Row>
@@ -79,6 +79,7 @@ export function DayOfWeekTable({ data, loading }: { data: DayOfWeekStats[] | und
   return (
     <Card title="Статистика по дням" loading={loading}>
       <Table<DayOfWeekStats>
+        scroll={{ x: 'max-content' }}
         size="small"
         rowKey="day"
         pagination={false}

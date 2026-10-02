@@ -24,6 +24,7 @@ export function OpenTrades() {
   return (
     <Card title="Открытые сделки">
       <Table<TradeDTO>
+        scroll={{ x: 'max-content' }}
         size="small"
         rowKey="id"
         dataSource={trades}

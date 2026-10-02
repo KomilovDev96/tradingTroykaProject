@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Grid } from 'antd';
 import {
   CandlestickSeries,
   ColorType,
@@ -28,6 +29,7 @@ interface TradingChartProps {
 }
 
 export function TradingChart(props: TradingChartProps) {
+  const screens = Grid.useBreakpoint();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -105,5 +107,5 @@ export function TradingChart(props: TradingChartProps) {
     }
   }, [props.highDemand, props.lowDemand, props.upperLevel, props.lowerLevel, props.entryPrice, props.stopLoss]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: 420 }} />;
+  return <div ref={containerRef} style={{ width: '100%', height: screens.md ? 420 : 300 }} />;
 }

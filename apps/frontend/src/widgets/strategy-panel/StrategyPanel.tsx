@@ -12,7 +12,7 @@ export function StrategyPanel() {
 
   return (
     <Card title="Стратегия «Тройка» — 3-часовой диапазон">
-      <Descriptions column={2} size="small" bordered>
+      <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
         <Descriptions.Item label="Начало">{output ? formatTime(output.rangeStart, timezone) : '—'}</Descriptions.Item>
         <Descriptions.Item label="Конец">{output ? formatTime(output.rangeEnd, timezone) : '—'}</Descriptions.Item>
         <Descriptions.Item label="Максимум спроса">{fmt(output?.highDemand)}</Descriptions.Item>

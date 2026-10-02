@@ -22,11 +22,11 @@ export function DashboardPage() {
   const pnlCurve = usePnlCurveQuery();
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%', padding: 24 }}>
+    <Space orientation="vertical" size="large" className="page">
       <MarketHeader />
 
-      <Row gutter={16}>
-        <Col span={17}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={17}>
           <TradingChart
             candles={candles}
             highDemand={output?.highDemand ?? null}
@@ -38,18 +38,18 @@ export function DashboardPage() {
             currentPrice={output?.currentPrice ?? null}
           />
         </Col>
-        <Col span={7}>
+        <Col xs={24} xl={7}>
           <SignalPanel />
         </Col>
       </Row>
 
       <StrategyPanel />
 
-      <Row gutter={16}>
-        <Col span={12}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={12}>
           <PerformanceCard title="Показатели за сегодня" stats={todayStats.data} loading={todayStats.isLoading} />
         </Col>
-        <Col span={12}>
+        <Col xs={24} lg={12}>
           <PerformanceCard title="Показатели за неделю" stats={weekStats.data} loading={weekStats.isLoading} />
         </Col>
       </Row>

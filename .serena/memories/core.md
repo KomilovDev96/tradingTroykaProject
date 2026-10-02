@@ -13,4 +13,5 @@ Detailed spec-to-code mapping lives in README.md (sections numbered like "§27" 
 - Exactly one server-side engine instance per instrument; frontend never runs the engine.
 - Postgres `Trade` rows are source of truth for positions/stats (no stats cache table).
 
+Production server, Docker stack, CI/CD and SSH access: `mem:deploy`.
 Stack: `mem:tech_stack`. Commands: `mem:suggested_commands`. Style: `mem:conventions`. Done-checklist: `mem:task_completion`.

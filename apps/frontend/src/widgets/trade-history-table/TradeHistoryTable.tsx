@@ -72,6 +72,7 @@ export function TradeHistoryTable() {
       </Space>
 
       <Table<TradeDTO>
+        scroll={{ x: 'max-content' }}
         size="small"
         rowKey="id"
         loading={isLoading}
