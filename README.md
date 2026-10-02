@@ -262,3 +262,25 @@ an entire class of "stats drifted from trades" bugs.
 
 The WebSocket also emits `{ type: 'trades-changed' }` whenever the engine confirms/closes a trade,
 which the frontend uses to invalidate its trade/stat queries — no manual refresh needed (§41).
+
+## 8. Production deploy (CI/CD)
+
+`docker-compose.prod.yml` runs Postgres, the backend, the built frontend (nginx) and Caddy, which
+serves everything on one domain with automatic Let's Encrypt HTTPS: `/api/*` and `/ws` go to the
+backend, everything else to the frontend; `www.` redirects to the bare domain.
+
+`.github/workflows/deploy.yml`: every push to `main` runs the engine tests, the backend type-check
+and the frontend build; if they pass, the source is rsynced to `/opt/troyka` on the server and
+`docker compose -f docker-compose.prod.yml up -d --build` restarts the stack. Pull requests run the
+checks only.
+
+**One-time server setup** (Docker + rsync installed, ports 80/443 free), then
+`/opt/troyka/.env` (never committed, never overwritten by deploys):
+```
+POSTGRES_PASSWORD=<long random string>
+DOMAIN=brokerkillers.uz
+```
+
+**GitHub → Settings → Secrets and variables → Actions:** `DEPLOY_HOST` (server IP),
+`DEPLOY_USER` (SSH user), `DEPLOY_SSH_KEY` (private key whose public half is in that user's
+`~/.ssh/authorized_keys` on the server).
