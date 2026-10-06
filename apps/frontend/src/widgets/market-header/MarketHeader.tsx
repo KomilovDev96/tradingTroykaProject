@@ -18,9 +18,13 @@ const PHASE_COLOR: Record<string, string> = {
   STOP_LOSS_HIT: 'error',
   CLOSED: 'default',
   PAUSED: 'warning',
+  ANALYZING_H1: 'processing',
+  TAKE_PROFIT_HIT: 'success',
+  NO_SPEED: 'warning',
 };
 
-export function MarketHeader() {
+/** `phase`: the long-term page shows its own engine's phase instead of the scalping one. */
+export function MarketHeader({ phase: phaseOverride }: { phase?: string } = {}) {
   const instrument = useMarketStore((s) => s.instrument);
   const output = useMarketStore((s) => s.output);
   const connectionStatus = useMarketStore((s) => s.connectionStatus);
@@ -30,7 +34,7 @@ export function MarketHeader() {
   const t = useT();
   const paused = useMeQuery().data?.analysisPaused ?? false;
   // The engine's phase is shared; a paused account sees PAUSED instead of the shared signal hunt.
-  const enginePhase = output?.phase ?? 'WAITING';
+  const enginePhase = phaseOverride ?? output?.phase ?? 'WAITING';
   const phase = paused && !enginePhase.endsWith('_ACTIVE') ? 'PAUSED' : enginePhase;
 
   return (

@@ -1,8 +1,6 @@
 import type { Candle } from '@troyka/strategy-engine';
 import type { PriceTick, RemoteCandle } from './derivClient';
 
-const FIVE_MINUTES_MS = 5 * 60 * 1000;
-
 /**
  * Trailing window kept in memory: comfortably more than the 3H analysis window (36 candles)
  * plus chart history, without letting the array (and the WS payload / per-tick range scan
@@ -10,17 +8,15 @@ const FIVE_MINUTES_MS = 5 * 60 * 1000;
  */
 const MAX_CANDLES = 500;
 
-function bucketStart(time: number): number {
-  return Math.floor(time / FIVE_MINUTES_MS) * FIVE_MINUTES_MS;
-}
-
 /**
- * Keeps a rolling window of 5-minute OHLCV candles: closed candles come straight from
+ * Keeps a rolling window of OHLCV candles (5-minute for scalping, 1-hour for the long-term strategy): closed candles come straight from
  * Deriv's own candle history (authoritative), and the currently-forming candle is built
  * live from streamed ticks so the chart updates between history refreshes.
  */
 export class CandleStore {
   private candles: Candle[] = [];
+
+  constructor(private readonly bucketMs = 5 * 60 * 1000) {}
 
   private trim() {
     if (this.candles.length > MAX_CANDLES) {
@@ -46,7 +42,7 @@ export class CandleStore {
   }
 
   applyTick(tick: PriceTick) {
-    const bucket = bucketStart(tick.time);
+    const bucket = Math.floor(tick.time / this.bucketMs) * this.bucketMs;
     const last = this.candles[this.candles.length - 1];
 
     if (!last || bucket > last.time) {

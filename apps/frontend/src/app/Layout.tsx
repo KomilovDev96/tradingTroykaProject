@@ -17,7 +17,8 @@ export function Layout() {
   useMarketSocket();
 
   const navItems = [
-    { key: '/', label: <Link to="/">{t('nav.dashboard')}</Link> },
+    { key: '/', label: <Link to="/">{t('nav.scalping')}</Link> },
+    { key: '/long-term', label: <Link to="/long-term">{t('nav.longTerm')}</Link> },
     { key: '/trades', label: <Link to="/trades">{t('nav.trades')}</Link> },
     { key: '/analytics', label: <Link to="/analytics">{t('nav.analytics')}</Link> },
     { key: '/settings', label: <Link to="/settings">{t('nav.settings')}</Link> },

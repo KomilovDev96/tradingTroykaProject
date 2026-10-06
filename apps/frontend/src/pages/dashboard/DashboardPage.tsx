@@ -1,9 +1,11 @@
 import { Col, Row, Space } from 'antd';
 import { useMarketStore } from '../../entities/market/model/store';
+import { SCALPING } from '../../entities/strategy/model/types';
 import { useSummaryStatsQuery, usePnlCurveQuery } from '../../entities/trade/api/queries';
 import { resolvePeriod } from '../../shared/lib/period';
 import { MarketHeader } from '../../widgets/market-header/MarketHeader';
 import { TradingChart } from '../../widgets/trading-chart/TradingChart';
+import { ChartPositionOverlay } from '../../widgets/trading-chart/ChartPositionOverlay';
 import { StrategyPanel } from '../../widgets/strategy-panel/StrategyPanel';
 import { SignalPanel } from '../../widgets/signal-panel/SignalPanel';
 import { OpenTrades } from '../../widgets/open-trades/OpenTrades';
@@ -19,9 +21,9 @@ export function DashboardPage() {
 
   const today = resolvePeriod('today', timezone);
   const thisWeek = resolvePeriod('this_week', timezone);
-  const todayStats = useSummaryStatsQuery(today.from, today.to);
-  const weekStats = useSummaryStatsQuery(thisWeek.from, thisWeek.to);
-  const pnlCurve = usePnlCurveQuery();
+  const todayStats = useSummaryStatsQuery(today.from, today.to, SCALPING);
+  const weekStats = useSummaryStatsQuery(thisWeek.from, thisWeek.to, SCALPING);
+  const pnlCurve = usePnlCurveQuery(SCALPING);
 
   return (
     <Space orientation="vertical" size="large" className="page">
@@ -31,13 +33,15 @@ export function DashboardPage() {
         <Col xs={24} xl={17}>
           <TradingChart
             candles={candles}
-            highDemand={output?.highDemand ?? null}
-            lowDemand={output?.lowDemand ?? null}
-            upperLevel={output?.upperLevel ?? null}
-            lowerLevel={output?.lowerLevel ?? null}
-            entryPrice={output?.entryPrice ?? null}
-            stopLoss={output?.stopLoss ?? null}
-            currentPrice={output?.currentPrice ?? null}
+            levels={[
+              { price: output?.highDemand ?? null, color: '#e0a800', title: t('chart.highDemand') },
+              { price: output?.lowDemand ?? null, color: '#e0a800', title: t('chart.lowDemand') },
+              { price: output?.upperLevel ?? null, color: '#58a6ff', title: t('chart.upperLevel') },
+              { price: output?.lowerLevel ?? null, color: '#58a6ff', title: t('chart.lowerLevel') },
+              { price: output?.entryPrice ?? null, color: '#3fb950', title: t('chart.entry') },
+              { price: output?.stopLoss ?? null, color: '#f85149', title: 'STOP LOSS' },
+            ]}
+            overlay={<ChartPositionOverlay strategy={SCALPING} />}
           />
         </Col>
         <Col xs={24} xl={7}>
@@ -56,7 +60,7 @@ export function DashboardPage() {
         </Col>
       </Row>
 
-      <OpenTrades />
+      <OpenTrades strategy={SCALPING} />
       <PnlChart data={pnlCurve.data} loading={pnlCurve.isLoading} />
     </Space>
   );

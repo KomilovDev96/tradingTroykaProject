@@ -26,6 +26,15 @@ export interface TradeDTO {
   confirmationTime: number;
   entryPrice: number;
   stopLoss: number;
+  /** Long-term (TROYKA_H1) only, null for scalping. */
+  dailySpeed: number | null;
+  breakevenStep: number | null;
+  initialStopLoss: number | null;
+  takeProfit1: number | null;
+  takeProfit2: number | null;
+  takeProfit3: number | null;
+  stage: number;
+  targetsHit: number;
   exitPrice: number | null;
   exitTime: number | null;
   pnlPoints: number | null;
@@ -57,6 +66,14 @@ function toDTO(trade: Trade): TradeDTO {
     confirmationTime: trade.confirmationTime.getTime(),
     entryPrice: Number(trade.entryPrice),
     stopLoss: Number(trade.stopLoss),
+    dailySpeed: trade.dailySpeed !== null ? Number(trade.dailySpeed) : null,
+    breakevenStep: trade.breakevenStep !== null ? Number(trade.breakevenStep) : null,
+    initialStopLoss: trade.initialStopLoss !== null ? Number(trade.initialStopLoss) : null,
+    takeProfit1: trade.takeProfit1 !== null ? Number(trade.takeProfit1) : null,
+    takeProfit2: trade.takeProfit2 !== null ? Number(trade.takeProfit2) : null,
+    takeProfit3: trade.takeProfit3 !== null ? Number(trade.takeProfit3) : null,
+    stage: trade.stage,
+    targetsHit: trade.targetsHit,
     exitPrice: trade.exitPrice !== null ? Number(trade.exitPrice) : null,
     exitTime: trade.exitTime?.getTime() ?? null,
     pnlPoints: trade.pnlPoints !== null ? Number(trade.pnlPoints) : null,
@@ -86,6 +103,16 @@ export interface CreateTradeParams {
   confirmationTime: number;
   entryPrice: number;
   stopLoss: number;
+  /** Long-term strategy: the speedometer targets frozen at entry. */
+  longTerm?: {
+    dailySpeed: number;
+    breakevenStep: number;
+    takeProfit1: number;
+    takeProfit2: number;
+    takeProfit3: number;
+    stage: number;
+    targetsHit: number;
+  };
 }
 
 /**
@@ -116,17 +143,41 @@ export async function createTradesForSignal(params: CreateTradeParams, accountId
       confirmationTime: new Date(params.confirmationTime),
       entryPrice: params.entryPrice,
       stopLoss: params.stopLoss,
+      ...(params.longTerm ? { ...params.longTerm, initialStopLoss: params.stopLoss } : {}),
       signalId,
     })),
   });
   return count;
 }
 
-/** A stop loss ends the movement for everyone still holding it. */
+/**
+ * A stop loss ends the movement for everyone still holding it. After the trailing stop pulled it
+ * into profit, the exit is booked as PROFIT.
+ */
 export async function closeTradeByStopLoss(signalId: string, exitPrice: number, exitTime: number, pnlPoints: number) {
+  const result = pnlPoints > 0 ? 'PROFIT' : 'STOP_LOSS';
   const trade = await prisma.trade.updateMany({
     where: { signalId, status: 'OPEN' },
-    data: { status: 'STOP_LOSS', result: 'STOP_LOSS', exitPrice, exitTime: new Date(exitTime), pnlPoints },
+    data: { status: 'STOP_LOSS', result, exitPrice, exitTime: new Date(exitTime), pnlPoints },
+  });
+  return trade.count > 0;
+}
+
+/** Trailing stop / breakeven step: moves the Stop Loss of everyone still holding this signal's position. */
+export async function moveStopLoss(signalId: string, stopLoss: number, stage?: number) {
+  await prisma.trade.updateMany({ where: { signalId, status: 'OPEN' }, data: { stopLoss, ...(stage !== undefined ? { stage } : {}) } });
+}
+
+/** Long-term: TP1/TP2 reached while the position stays open. */
+export async function markTargetsHit(signalId: string, targetsHit: number) {
+  await prisma.trade.updateMany({ where: { signalId, status: 'OPEN' }, data: { targetsHit } });
+}
+
+/** Long-term: TP3 closes the movement for everyone still holding it. */
+export async function closeTradeByTakeProfit(signalId: string, exitPrice: number, exitTime: number, pnlPoints: number) {
+  const trade = await prisma.trade.updateMany({
+    where: { signalId, status: 'OPEN' },
+    data: { status: 'CLOSED', result: 'PROFIT', exitPrice, exitTime: new Date(exitTime), pnlPoints },
   });
   return trade.count > 0;
 }
@@ -149,9 +200,9 @@ export async function countOpenTradesForSignal(signalId: string): Promise<number
 }
 
 /** Without `accountId`: every open row (used to restore the engine's position on boot). */
-export async function getOpenTrades(symbol?: string, accountId?: string): Promise<TradeDTO[]> {
+export async function getOpenTrades(symbol?: string, accountId?: string, strategy?: string): Promise<TradeDTO[]> {
   const trades = await prisma.trade.findMany({
-    where: { status: 'OPEN', ...(symbol ? { symbol } : {}), ...(accountId ? { accountId } : {}) },
+    where: { status: 'OPEN', ...(symbol ? { symbol } : {}), ...(accountId ? { accountId } : {}), ...(strategy ? { strategy } : {}) },
     orderBy: { createdAt: 'desc' },
   });
   return trades.map(toDTO);
@@ -192,11 +243,12 @@ export async function listTrades(filters: TradeFilters): Promise<TradeDTO[]> {
 }
 
 /** Trades whose lifecycle (open or closed) touches the given window — used for statistics. */
-export async function getClosedTradesInRange(from: number, to: number, symbol?: string, accountId?: string): Promise<TradeDTO[]> {
+export async function getClosedTradesInRange(from: number, to: number, symbol?: string, accountId?: string, strategy?: string): Promise<TradeDTO[]> {
   const trades = await prisma.trade.findMany({
     where: {
       status: { not: 'OPEN' },
       ...(accountId ? { accountId } : {}),
+      ...(strategy ? { strategy } : {}),
       exitTime: { gte: new Date(from), lte: new Date(to) },
       ...(symbol ? { symbol } : {}),
     },
@@ -205,9 +257,9 @@ export async function getClosedTradesInRange(from: number, to: number, symbol?: 
   return trades.map(toDTO);
 }
 
-export async function getAllClosedTrades(symbol?: string, accountId?: string): Promise<TradeDTO[]> {
+export async function getAllClosedTrades(symbol?: string, accountId?: string, strategy?: string): Promise<TradeDTO[]> {
   const trades = await prisma.trade.findMany({
-    where: { status: { not: 'OPEN' }, ...(symbol ? { symbol } : {}), ...(accountId ? { accountId } : {}) },
+    where: { status: { not: 'OPEN' }, ...(symbol ? { symbol } : {}), ...(accountId ? { accountId } : {}), ...(strategy ? { strategy } : {}) },
     orderBy: { exitTime: 'asc' },
   });
   return trades.map(toDTO);

@@ -2,7 +2,8 @@ import { Alert, App, Button, Card, Descriptions, Progress, Space, Tag } from 'an
 import { useMarketStore } from '../../entities/market/model/store';
 import { useMeQuery } from '../../entities/session/api/session';
 import { useOpenTradesQuery } from '../../entities/trade/api/queries';
-import { useClosePosition } from '../../features/close-position/model/useClosePosition';
+import { SCALPING } from '../../entities/strategy/model/types';
+import { ClosePositionButton } from '../../features/close-position/ui/ClosePositionButton';
 import { useToggleAnalysis } from '../../features/toggle-analysis/model/useToggleAnalysis';
 import { ApiError } from '../../shared/api/httpClient';
 import { translateError, useT, type TranslationKey } from '../../shared/i18n';
@@ -22,8 +23,7 @@ export function SignalPanel() {
   const { message } = App.useApp();
   const output = useMarketStore((s) => s.output);
   const me = useMeQuery().data;
-  const myPosition = useOpenTradesQuery().data?.[0] ?? null;
-  const closePosition = useClosePosition();
+  const myPosition = useOpenTradesQuery(SCALPING).data?.[0] ?? null;
   const toggleAnalysis = useToggleAnalysis();
 
   const paused = me?.analysisPaused ?? false;
@@ -37,15 +37,6 @@ export function SignalPanel() {
 
   const errorText = (err: unknown, fallback: TranslationKey) =>
     err instanceof ApiError ? translateError(t, err.code, err.status) : t(fallback);
-
-  const handleClose = async () => {
-    try {
-      await closePosition.mutateAsync();
-      message.success(t('signal.closedOk'));
-    } catch (err) {
-      message.error(errorText(err, 'signal.closeFailed'));
-    }
-  };
 
   const handleToggle = async () => {
     try {
@@ -113,11 +104,7 @@ export function SignalPanel() {
           <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
             {paused ? t('signal.resume') : t('signal.pause')}
           </Button>
-          {myPosition && (
-            <Button danger loading={closePosition.isPending} onClick={handleClose}>
-              {t('signal.close')}
-            </Button>
-          )}
+          {myPosition && <ClosePositionButton strategy={SCALPING} />}
         </Space>
       )}
     </Card>

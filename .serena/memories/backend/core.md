@@ -10,3 +10,6 @@
 - `src/server.ts`: REST under `/api/*`, WS at `/ws` (`snapshot`, `update`, `trades-changed` messages). CORS allows any localhost port.
 - Prices stored as Prisma `Decimal`, converted to number in DTOs.
 - Env: `apps/backend/.env` (INSTRUMENT, PORT=4000, FRONTEND_ORIGIN, DATABASE_URL → Postgres on 5433 via docker-compose).
+- Two strategies, `src/strategies.ts`: `TROYKA` (5M scalping, `EngineRunner`) and `TROYKA_H1` (long-term, `src/engine/longTermRunner.ts`, H1 CandleStore + daily candles for the speedometer). Both fed by the same tick stream. Deriv `count` is in calendar units (weekends included).
+- WS: `update` (scalping), `update-long-term`; snapshot carries `longTerm: {output, candles}`. `/api/trades/open`, stats endpoints and `/api/close-position` (body) take `strategy`.
+- Trade long-term columns: dailySpeed, breakevenStep, initialStopLoss, takeProfit1-3, stage, targetsHit (null/0 for scalping). For H1 the range columns hold: lookback window, troika high/low, rangePoints = ADR, upper/lower = entry ± 3×ADR.

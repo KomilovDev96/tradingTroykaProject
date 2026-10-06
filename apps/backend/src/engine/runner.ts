@@ -14,6 +14,7 @@ import {
   closeTradeManually,
   countOpenTradesForSignal,
   createTradesForSignal,
+  moveStopLoss,
   type TradeDTO,
 } from '../db/tradeRepository';
 import { CandleStore } from '../marketdata/candleStore';
@@ -116,6 +117,14 @@ export class EngineRunner {
           result.state = closeActivePosition(result.state, currentPrice, currentTime).state;
           result.output = { ...result.output, phase: result.state.phase, signal: 'WAIT', entryPrice: null, stopLoss: null, state: result.state };
           this.openTradeSignalId = null;
+        }
+      } else if (event.type === 'STOP_LOSS_MOVED' && this.openTradeSignalId) {
+        try {
+          await moveStopLoss(this.openTradeSignalId, event.stopLoss);
+        } catch (err) {
+          // Same as a failed signal: drop the step, the next tick computes the same move and retries.
+          console.error('[troyka] Failed to persist trailing stop, will retry on next tick:', err);
+          return;
         }
       } else if (event.type === 'STOP_LOSS_HIT' && this.openTradeSignalId) {
         this.pendingStopLosses.push({

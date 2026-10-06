@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Grid } from 'antd';
-import { useT } from '../../shared/i18n';
 import {
   CandlestickSeries,
   ColorType,
@@ -12,26 +11,24 @@ import {
 } from 'lightweight-charts';
 import type { Candle } from '../../entities/strategy/model/types';
 
-interface Level {
+export interface ChartLevel {
   price: number | null;
   color: string;
   title: string;
+  /** lightweight-charts LineStyle: 0 solid, 2 dashed (default). */
+  lineStyle?: number;
 }
 
 interface TradingChartProps {
   candles: Candle[];
-  highDemand: number | null;
-  lowDemand: number | null;
-  upperLevel: number | null;
-  lowerLevel: number | null;
-  entryPrice: number | null;
-  stopLoss: number | null;
-  currentPrice: number | null;
+  /** Horizontal price lines; null prices are skipped. */
+  levels: ChartLevel[];
+  /** Rendered on top of the chart's top-left corner, e.g. the open position with its close button. */
+  overlay?: ReactNode;
 }
 
 export function TradingChart(props: TradingChartProps) {
   const screens = Grid.useBreakpoint();
-  const t = useT();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -79,6 +76,9 @@ export function TradingChart(props: TradingChartProps) {
     );
   }, [props.candles]);
 
+  // Keyed by content: the levels array is rebuilt on every tick, the lines only when a price/title changes.
+  const levelsKey = JSON.stringify(props.levels);
+
   useEffect(() => {
     const series = seriesRef.current;
     if (!series) return;
@@ -86,28 +86,24 @@ export function TradingChart(props: TradingChartProps) {
     for (const line of priceLinesRef.current) series.removePriceLine(line);
     priceLinesRef.current = [];
 
-    const levels: Level[] = [
-      { price: props.highDemand, color: '#e0a800', title: t('chart.highDemand') },
-      { price: props.lowDemand, color: '#e0a800', title: t('chart.lowDemand') },
-      { price: props.upperLevel, color: '#58a6ff', title: t('chart.upperLevel') },
-      { price: props.lowerLevel, color: '#58a6ff', title: t('chart.lowerLevel') },
-      { price: props.entryPrice, color: '#3fb950', title: t('chart.entry') },
-      { price: props.stopLoss, color: '#f85149', title: 'STOP LOSS' },
-    ];
-
-    for (const level of levels) {
+    for (const level of JSON.parse(levelsKey) as ChartLevel[]) {
       if (level.price === null) continue;
       const line = series.createPriceLine({
         price: level.price,
         color: level.color,
         lineWidth: 1,
-        lineStyle: 2,
+        lineStyle: level.lineStyle ?? 2,
         axisLabelVisible: true,
         title: level.title,
       });
       priceLinesRef.current.push(line);
     }
-  }, [props.highDemand, props.lowDemand, props.upperLevel, props.lowerLevel, props.entryPrice, props.stopLoss, t]);
+  }, [levelsKey]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: screens.md ? 420 : 300 }} />;
+  return (
+    <div style={{ position: 'relative' }}>
+      <div ref={containerRef} style={{ width: '100%', height: screens.md ? 420 : 300 }} />
+      {props.overlay && <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 3 }}>{props.overlay}</div>}
+    </div>
+  );
 }

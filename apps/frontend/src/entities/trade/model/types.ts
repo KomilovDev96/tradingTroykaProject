@@ -22,6 +22,15 @@ export interface TradeDTO {
   confirmationTime: number;
   entryPrice: number;
   stopLoss: number;
+  /** Long-term (TROYKA_H1) only: speedometer targets frozen at entry. */
+  dailySpeed: number | null;
+  breakevenStep: number | null;
+  initialStopLoss: number | null;
+  takeProfit1: number | null;
+  takeProfit2: number | null;
+  takeProfit3: number | null;
+  stage: number;
+  targetsHit: number;
   exitPrice: number | null;
   exitTime: number | null;
   pnlPoints: number | null;

@@ -9,6 +9,7 @@ const RECONNECT_DELAY_MS = 2000;
 export function useMarketSocket() {
   const applySnapshot = useMarketStore((s) => s.applySnapshot);
   const applyUpdate = useMarketStore((s) => s.applyUpdate);
+  const applyLongTermUpdate = useMarketStore((s) => s.applyLongTermUpdate);
   const setConnectionStatus = useMarketStore((s) => s.setConnectionStatus);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
@@ -31,9 +32,12 @@ export function useMarketSocket() {
             instrument: message.instrument,
             candles: message.candles ?? [],
             output: message.output ?? null,
+            longTerm: message.longTerm,
           });
         } else if (message.type === 'update') {
           applyUpdate({ output: message.output, candles: message.candles ?? [] });
+        } else if (message.type === 'update-long-term') {
+          applyLongTermUpdate({ output: message.output, candles: message.candles ?? [] });
         } else if (message.type === 'trades-changed') {
           // Section 41: dashboard/trade journal refresh automatically, no manual reload.
           queryClient.invalidateQueries({ predicate: (q) => ['open-trades', 'trades', 'stats'].includes(q.queryKey[0] as string) });
@@ -55,5 +59,5 @@ export function useMarketSocket() {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       socket?.close();
     };
-  }, [applySnapshot, applyUpdate, setConnectionStatus, queryClient]);
+  }, [applySnapshot, applyUpdate, applyLongTermUpdate, setConnectionStatus, queryClient]);
 }

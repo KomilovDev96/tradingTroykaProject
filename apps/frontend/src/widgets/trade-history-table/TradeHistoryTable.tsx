@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, Card, DatePicker, Select, Space, Table } from 'antd';
 import { useTradesQuery } from '../../entities/trade/api/queries';
 import type { TradeDTO, TradeFilters } from '../../entities/trade/model/types';
+import { LONG_TERM, SCALPING } from '../../entities/strategy/model/types';
 import { exportTradesCsv } from '../../features/export-trades/model/useExportTrades';
 import { useT } from '../../shared/i18n';
 import { useTradeHistoryColumns } from './useTradeHistoryColumns';
@@ -32,6 +33,16 @@ export function TradeHistoryTable() {
               to: range?.[1] ? range[1].endOf('day').valueOf() : undefined,
             }))
           }
+        />
+        <Select
+          allowClear
+          placeholder={t('trades.colStrategy')}
+          style={{ width: 200 }}
+          options={[
+            { value: SCALPING, label: t('strategyName.scalping') },
+            { value: LONG_TERM, label: t('strategyName.longTerm') },
+          ]}
+          onChange={(v) => setFilters((f) => ({ ...f, strategy: v }))}
         />
         <Select
           allowClear

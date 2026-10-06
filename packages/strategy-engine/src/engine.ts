@@ -1,5 +1,5 @@
 import type { ActivePosition, Candle, CandleStreak, EngineEvent, EngineInput, EngineOutput, StrategyEngineState } from './types';
-import { CANDLES_TO_CONFIRM, FIVE_MINUTES_MS, THREE_HOURS_MS } from './types';
+import { CANDLES_TO_CONFIRM, FIVE_MINUTES_MS, THREE_HOURS_MS, TRAILING_STEP_POINTS, TRAILING_TRIGGER_POINTS } from './types';
 
 const MAX_SIGNAL_HISTORY = 200;
 
@@ -46,6 +46,18 @@ function candleDirection(candle: Candle): 'UP' | 'DOWN' | null {
   if (candle.close > candle.open) return 'UP';
   if (candle.close < candle.open) return 'DOWN';
   return null;
+}
+
+/**
+ * Trailing Stop Loss for the current profit, or null while below the trigger.
+ * Profit 40..59 locks +20, 60..79 locks +40, and so on (see TRAILING_TRIGGER_POINTS).
+ */
+export function trailingStopLoss(position: Pick<ActivePosition, 'direction' | 'entryPrice'>, currentPrice: number): number | null {
+  const profit = position.direction === 'BUY' ? currentPrice - position.entryPrice : position.entryPrice - currentPrice;
+  if (profit < TRAILING_TRIGGER_POINTS) return null;
+  const steps = Math.floor((profit - TRAILING_TRIGGER_POINTS) / TRAILING_STEP_POINTS);
+  const locked = TRAILING_TRIGGER_POINTS - TRAILING_STEP_POINTS + steps * TRAILING_STEP_POINTS;
+  return position.direction === 'BUY' ? position.entryPrice + locked : position.entryPrice - locked;
 }
 
 function buildSignalId(direction: 'UP' | 'DOWN', movementStartTime: number): string {
@@ -106,6 +118,27 @@ export function step(state: StrategyEngineState, input: EngineInput): { state: S
       activePosition = null;
       streak = null;
       stoppedOutThisTick = true;
+    }
+  }
+
+  // --- Trailing stop: checked after the hit test, so a move only protects from the next tick on. ---
+  if (activePosition) {
+    const trailed = trailingStopLoss(activePosition, currentPrice);
+    const tighter =
+      trailed !== null &&
+      (activePosition.direction === 'BUY' ? trailed > activePosition.stopLoss : trailed < activePosition.stopLoss);
+
+    if (trailed !== null && tighter) {
+      events.push({
+        type: 'STOP_LOSS_MOVED',
+        signalId: activePosition.signalId,
+        direction: activePosition.direction,
+        entryPrice: activePosition.entryPrice,
+        previousStopLoss: activePosition.stopLoss,
+        stopLoss: trailed,
+        profitPoints: activePosition.direction === 'BUY' ? currentPrice - activePosition.entryPrice : activePosition.entryPrice - currentPrice,
+      });
+      activePosition = { ...activePosition, stopLoss: trailed };
     }
   }
 

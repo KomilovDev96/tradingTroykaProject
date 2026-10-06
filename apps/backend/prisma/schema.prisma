@@ -91,6 +91,18 @@ model Trade {
   entryPrice Decimal
   stopLoss   Decimal
 
+  /// Long-term (TROYKA_H1) only: the speedometer targets frozen at entry (PDF sections 3-4).
+  dailySpeed      Decimal?
+  breakevenStep   Decimal?
+  initialStopLoss Decimal?
+  takeProfit1     Decimal?
+  takeProfit2     Decimal?
+  takeProfit3     Decimal?
+  /// 0 = initial SL, 1 = SL at breakeven, 2 = SL at the Step 1 price.
+  stage           Int      @default(0)
+  /// Highest TP reached while open (0-2; TP3 closes the trade).
+  targetsHit      Int      @default(0)
+
   exitPrice Decimal?
   exitTime  DateTime?
   pnlPoints Decimal?
@@ -111,6 +123,7 @@ model Trade {
   @@unique([signalId, accountId])
   @@index([accountId, status])
   @@index([signalId, status])
+  @@index([strategy, status])
   @@index([symbol, status])
   @@index([createdAt])
   @@index([direction])

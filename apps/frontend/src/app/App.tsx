@@ -7,6 +7,7 @@ import { ANTD_LOCALES, useLanguageStore } from '../shared/i18n';
 import { Layout } from './Layout';
 import { RequireAuth } from './RequireAuth';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
+import { LongTermPage } from '../pages/long-term/LongTermPage';
 import { TradesPage } from '../pages/trades/TradesPage';
 import { AnalyticsPage } from '../pages/analytics/AnalyticsPage';
 import { SettingsPage } from '../pages/settings/SettingsPage';
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/admin" element={<RequireAuth superAdmin><AdminPage /></RequireAuth>} />
             <Route element={<RequireAuth><Layout /></RequireAuth>}>
               <Route index element={<DashboardPage />} />
+              <Route path="/long-term" element={<LongTermPage />} />
               <Route path="/trades" element={<TradesPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />

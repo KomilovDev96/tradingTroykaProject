@@ -2,6 +2,7 @@ import { Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useMarketStore } from '../../entities/market/model/store';
 import type { TradeDTO } from '../../entities/trade/model/types';
+import { LONG_TERM } from '../../entities/strategy/model/types';
 import { useT, type TranslationKey } from '../../shared/i18n';
 import { formatDateTime } from '../../shared/lib/time';
 
@@ -15,6 +16,11 @@ export function useTradeHistoryColumns(): ColumnsType<TradeDTO> {
   return [
     { title: t('trades.colDate'), dataIndex: 'createdAt', render: (time: number) => formatDateTime(time, timezone) },
     { title: t('trades.colSymbol'), dataIndex: 'symbol' },
+    {
+      title: t('trades.colStrategy'),
+      dataIndex: 'strategy',
+      render: (s: string) => <Tag color={s === LONG_TERM ? 'purple' : 'blue'}>{t(s === LONG_TERM ? 'strategyName.longTerm' : 'strategyName.scalping')}</Tag>,
+    },
     { title: t('trades.colDirection'), dataIndex: 'direction', render: (d: string) => <Tag color={d === 'BUY' ? 'success' : 'error'}>{d}</Tag> },
     { title: t('trades.colEntry'), dataIndex: 'entryPrice', render: (v: number) => v.toFixed(2) },
     { title: t('trades.colExit'), dataIndex: 'exitPrice', render: (v?: number) => (v !== null && v !== undefined ? v.toFixed(2) : '—') },

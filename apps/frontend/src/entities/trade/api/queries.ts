@@ -9,11 +9,13 @@ import type {
   TradeDTO,
   TradeFilters,
 } from '../model/types';
+import type { StrategyId } from '../../strategy/model/types';
 
-export function useOpenTradesQuery() {
+/** Without a strategy: open positions of both strategies (the trade journal). */
+export function useOpenTradesQuery(strategy?: StrategyId) {
   return useQuery({
-    queryKey: ['open-trades'],
-    queryFn: () => getJson<TradeDTO[]>('/api/trades/open'),
+    queryKey: ['open-trades', strategy],
+    queryFn: () => getJson<TradeDTO[]>('/api/trades/open', { strategy }),
     refetchInterval: 5000,
   });
 }
@@ -34,37 +36,37 @@ export function useTradesQuery(filters: TradeFilters) {
   });
 }
 
-export function useSummaryStatsQuery(from: number, to: number) {
+export function useSummaryStatsQuery(from: number, to: number, strategy?: StrategyId) {
   return useQuery({
-    queryKey: ['stats', 'summary', from, to],
-    queryFn: () => getJson<SummaryStats>('/api/stats/summary', { from, to }),
+    queryKey: ['stats', 'summary', from, to, strategy],
+    queryFn: () => getJson<SummaryStats>('/api/stats/summary', { from, to, strategy }),
   });
 }
 
-export function useByDirectionStatsQuery(from: number, to: number) {
+export function useByDirectionStatsQuery(from: number, to: number, strategy?: StrategyId) {
   return useQuery({
-    queryKey: ['stats', 'by-direction', from, to],
-    queryFn: () => getJson<ByDirectionStats>('/api/stats/by-direction', { from, to }),
+    queryKey: ['stats', 'by-direction', from, to, strategy],
+    queryFn: () => getJson<ByDirectionStats>('/api/stats/by-direction', { from, to, strategy }),
   });
 }
 
-export function useStopLossStatsQuery(from: number, to: number) {
+export function useStopLossStatsQuery(from: number, to: number, strategy?: StrategyId) {
   return useQuery({
-    queryKey: ['stats', 'stoploss', from, to],
-    queryFn: () => getJson<StopLossStats>('/api/stats/stoploss', { from, to }),
+    queryKey: ['stats', 'stoploss', from, to, strategy],
+    queryFn: () => getJson<StopLossStats>('/api/stats/stoploss', { from, to, strategy }),
   });
 }
 
-export function useByDayStatsQuery(from: number, to: number, timezone: string) {
+export function useByDayStatsQuery(from: number, to: number, timezone: string, strategy?: StrategyId) {
   return useQuery({
-    queryKey: ['stats', 'by-day', from, to, timezone],
-    queryFn: () => getJson<DayOfWeekStats[]>('/api/stats/by-day', { from, to, timezone }),
+    queryKey: ['stats', 'by-day', from, to, timezone, strategy],
+    queryFn: () => getJson<DayOfWeekStats[]>('/api/stats/by-day', { from, to, timezone, strategy }),
   });
 }
 
-export function usePnlCurveQuery() {
+export function usePnlCurveQuery(strategy?: StrategyId) {
   return useQuery({
-    queryKey: ['stats', 'pnl-curve'],
-    queryFn: () => getJson<PnlCurvePoint[]>('/api/stats/pnl-curve'),
+    queryKey: ['stats', 'pnl-curve', strategy],
+    queryFn: () => getJson<PnlCurvePoint[]>('/api/stats/pnl-curve', { strategy }),
   });
 }

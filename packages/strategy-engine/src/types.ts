@@ -76,6 +76,17 @@ export type EngineEvent =
       pnlPoints: number;
     }
   | {
+      /** Trailing stop: the position's Stop Loss was pulled up into profit. */
+      type: 'STOP_LOSS_MOVED';
+      signalId: string;
+      direction: 'BUY' | 'SELL';
+      entryPrice: number;
+      previousStopLoss: number;
+      stopLoss: number;
+      /** Profit (points) at the tick that moved it. */
+      profitPoints: number;
+    }
+  | {
       type: 'MANUAL_CLOSE';
       signalId: string;
       direction: 'BUY' | 'SELL';
@@ -151,3 +162,10 @@ export interface EngineOutput {
 export const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 export const FIVE_MINUTES_MS = 5 * 60 * 1000;
 export const CANDLES_TO_CONFIRM = 3;
+/**
+ * Trailing stop: once the position is TRAILING_TRIGGER_POINTS in profit the Stop Loss moves to
+ * entry + (trigger - step); every further TRAILING_STEP_POINTS of profit pulls it up by another step.
+ * 40 → SL +20, 60 → SL +40, 80 → SL +60… It never moves back.
+ */
+export const TRAILING_TRIGGER_POINTS = 40;
+export const TRAILING_STEP_POINTS = 20;

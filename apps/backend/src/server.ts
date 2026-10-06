@@ -4,6 +4,8 @@ import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
 import { env } from './env';
 import type { EngineRunner } from './engine/runner';
+import type { LongTermRunner } from './engine/longTermRunner';
+import { LONG_TERM_STRATEGY, parseStrategy } from './strategies';
 import { getAllClosedTrades, getClosedTradesInRange, getOpenTrades, listTrades, type TradeFilters } from './db/tradeRepository';
 import { computeByDayOfWeek, computeByDirection, computePnlCurve, computeStopLossStats, computeSummary } from './stats/computeStats';
 import { Hub } from './ws/hub';
@@ -34,7 +36,7 @@ function parseTradeFilters(query: Record<string, unknown>): TradeFilters {
     result:
       query.result === 'PROFIT' || query.result === 'STOP_LOSS' || query.result === 'MANUAL_CLOSE' ? query.result : undefined,
     status: query.status === 'OPEN' || query.status === 'CLOSED' || query.status === 'STOP_LOSS' ? query.status : undefined,
-    strategy: typeof query.strategy === 'string' ? query.strategy : undefined,
+    strategy: parseStrategy(query.strategy),
   };
 }
 
@@ -55,7 +57,7 @@ function route(handler: (req: Request, res: Response) => Promise<unknown>) {
   };
 }
 
-export function createApp(runner: EngineRunner) {
+export function createApp(runner: EngineRunner, longTermRunner: LongTermRunner) {
   const app = express();
   // Behind Caddy in production: trust the private-network proxy so req.ip is the real client.
   app.set('trust proxy', 'loopback, uniquelocal');
@@ -165,18 +167,26 @@ export function createApp(runner: EngineRunner) {
 
   const accountOf = (res: Response) => res.locals.account as AccountDTO;
 
-  app.get('/api/snapshot', (_req, res) => {
-    res.json({ instrument: env.instrument, output: runner.getLatest(), candles: runner.candleStore.getCandles() });
+  const snapshot = () => ({
+    instrument: env.instrument,
+    output: runner.getLatest(),
+    candles: runner.candleStore.getCandles(),
+    longTerm: { output: longTermRunner.getLatest(), candles: longTermRunner.candleStore.getCandles() },
   });
 
-  /** «Закрыть позицию»: closes only the caller's own position. */
-  app.post('/api/close-position', route(async (_req, res) => {
-    const latest = runner.getLatest();
+  app.get('/api/snapshot', (_req, res) => {
+    res.json(snapshot());
+  });
+
+  /** «Закрыть позицию»: closes only the caller's own position — of the scalping or, with `strategy`, the long-term Troika. */
+  app.post('/api/close-position', route(async (req, res) => {
+    const target = req.body?.strategy === LONG_TERM_STRATEGY ? longTermRunner : runner;
+    const latest = target.getLatest();
     if (!latest) {
       res.status(409).json({ error: 'NO_DATA' });
       return;
     }
-    const closed = await runner.closePositionFor(accountOf(res).id, latest.currentPrice, Date.now());
+    const closed = await target.closePositionFor(accountOf(res).id, latest.currentPrice, Date.now());
     if (!closed) {
       res.status(409).json({ error: 'NO_POSITION' });
       return;
@@ -218,8 +228,8 @@ export function createApp(runner: EngineRunner) {
     res.json({ ok: true });
   }));
 
-  app.get('/api/trades/open', route(async (_req, res) => {
-    res.json(await getOpenTrades(env.instrument, accountOf(res).id));
+  app.get('/api/trades/open', route(async (req, res) => {
+    res.json(await getOpenTrades(env.instrument, accountOf(res).id, parseStrategy(req.query.strategy)));
   }));
 
   app.get('/api/trades', route(async (req, res) => {
@@ -250,7 +260,7 @@ export function createApp(runner: EngineRunner) {
   }));
 
   const closedInRange = (req: Request, res: Response) =>
-    getClosedTradesInRange(Number(req.query.from), Number(req.query.to), env.instrument, accountOf(res).id);
+    getClosedTradesInRange(Number(req.query.from), Number(req.query.to), env.instrument, accountOf(res).id, parseStrategy(req.query.strategy));
 
   app.get('/api/stats/summary', route(async (req, res) => {
     res.json(computeSummary(await closedInRange(req, res)));
@@ -269,8 +279,8 @@ export function createApp(runner: EngineRunner) {
     res.json(computeStopLossStats(await closedInRange(req, res)));
   }));
 
-  app.get('/api/stats/pnl-curve', route(async (_req, res) => {
-    res.json(computePnlCurve(await getAllClosedTrades(env.instrument, accountOf(res).id)));
+  app.get('/api/stats/pnl-curve', route(async (req, res) => {
+    res.json(computePnlCurve(await getAllClosedTrades(env.instrument, accountOf(res).id, parseStrategy(req.query.strategy))));
   }));
 
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
@@ -294,8 +304,7 @@ export function createApp(runner: EngineRunner) {
   hub.attach(wss);
 
   wss.on('connection', (socket) => {
-    const snapshot = { type: 'snapshot', instrument: env.instrument, output: runner.getLatest(), candles: runner.candleStore.getCandles() };
-    socket.send(JSON.stringify(snapshot));
+    socket.send(JSON.stringify({ type: 'snapshot', ...snapshot() }));
   });
 
   return { httpServer, hub };
