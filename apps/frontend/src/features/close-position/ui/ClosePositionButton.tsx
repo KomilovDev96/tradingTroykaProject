@@ -6,7 +6,7 @@ import { useOpenTradesQuery } from '../../../entities/trade/api/queries';
 import { useClosePosition } from '../model/useClosePosition';
 
 /**
- * «Закрыть позицию» with a confirm step, shared by the chart overlay, the signal panel and the open trades table.
+ * «Закрыть позицию» with a confirm step, shared by the chart overlay and the open trades table.
  * Always visible to everyone: inactive (with a hint) while the account holds no position of this strategy.
  */
 export function ClosePositionButton({ strategy, children, ...buttonProps }: ButtonProps & { strategy: StrategyId }) {

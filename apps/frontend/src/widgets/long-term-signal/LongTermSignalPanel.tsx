@@ -3,7 +3,6 @@ import { useMarketStore } from '../../entities/market/model/store';
 import { useMeQuery } from '../../entities/session/api/session';
 import { LONG_TERM } from '../../entities/strategy/model/types';
 import { useOpenTradesQuery } from '../../entities/trade/api/queries';
-import { ClosePositionButton } from '../../features/close-position/ui/ClosePositionButton';
 import { useToggleAnalysis } from '../../features/toggle-analysis/model/useToggleAnalysis';
 import { ApiError } from '../../shared/api/httpClient';
 import { translateError, useT } from '../../shared/i18n';
@@ -131,7 +130,6 @@ export function LongTermSignalPanel() {
         <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
           {paused ? t('signal.resume') : t('signal.pause')}
         </Button>
-        <ClosePositionButton strategy={LONG_TERM} />
       </Space>
     </Card>
   );

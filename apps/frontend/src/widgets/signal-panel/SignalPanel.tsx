@@ -3,7 +3,6 @@ import { useMarketStore } from '../../entities/market/model/store';
 import { useMeQuery } from '../../entities/session/api/session';
 import { useOpenTradesQuery } from '../../entities/trade/api/queries';
 import { SCALPING } from '../../entities/strategy/model/types';
-import { ClosePositionButton } from '../../features/close-position/ui/ClosePositionButton';
 import { useToggleAnalysis } from '../../features/toggle-analysis/model/useToggleAnalysis';
 import { ApiError } from '../../shared/api/httpClient';
 import { translateError, useT, type TranslationKey } from '../../shared/i18n';
@@ -103,7 +102,6 @@ export function SignalPanel() {
         <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
           {paused ? t('signal.resume') : t('signal.pause')}
         </Button>
-        <ClosePositionButton strategy={SCALPING} />
       </Space>
     </Card>
   );
