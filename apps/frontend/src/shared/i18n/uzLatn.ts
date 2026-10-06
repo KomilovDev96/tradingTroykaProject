@@ -87,7 +87,6 @@ export const uzLatn: Dictionary = {
   'signal.closeFailed': 'Pozitsiyani yopib boʻlmadi',
   'signal.closePosition': 'Pozitsiyani yopish',
   'signal.closeNoPosition': 'Ochiq pozitsiya yoʻq',
-  'signal.closeObserver': 'Super admin faqat kuzatadi, pozitsiya ochmaydi',
   'signal.closeConfirm': 'Pozitsiya joriy narxda yopilsinmi?',
   'signal.closeConfirmOk': 'Yopish',
   'signal.closeConfirmCancel': 'Bekor qilish',

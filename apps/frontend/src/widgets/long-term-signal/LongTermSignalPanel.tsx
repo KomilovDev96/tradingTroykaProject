@@ -27,7 +27,6 @@ export function LongTermSignalPanel() {
   const toggleAnalysis = useToggleAnalysis();
 
   const paused = me?.analysisPaused ?? false;
-  const canTrade = me?.role !== 'SUPERADMIN';
 
   const handleToggle = async () => {
     try {
@@ -59,7 +58,7 @@ export function LongTermSignalPanel() {
         </Tag>
       </div>
 
-      {paused && canTrade && (
+      {paused && (
         <Alert
           type="warning"
           showIcon
@@ -129,11 +128,9 @@ export function LongTermSignalPanel() {
       </Typography.Paragraph>
 
       <Space wrap style={{ marginTop: 16 }}>
-        {canTrade && (
-          <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
-            {paused ? t('signal.resume') : t('signal.pause')}
-          </Button>
-        )}
+        <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
+          {paused ? t('signal.resume') : t('signal.pause')}
+        </Button>
         <ClosePositionButton strategy={LONG_TERM} />
       </Space>
     </Card>

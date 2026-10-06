@@ -4,7 +4,6 @@ import { useOpenTradesQuery } from '../../entities/trade/api/queries';
 import type { TradeDTO } from '../../entities/trade/model/types';
 import { LONG_TERM, type StrategyId } from '../../entities/strategy/model/types';
 import { useMarketStore } from '../../entities/market/model/store';
-import { useMeQuery } from '../../entities/session/api/session';
 import { ClosePositionButton } from '../../features/close-position/ui/ClosePositionButton';
 import { useT } from '../../shared/i18n';
 
@@ -21,7 +20,6 @@ export function OpenTrades({ strategy }: { strategy?: StrategyId }) {
   const currentPrice = useMarketStore((s) => s.output?.currentPrice ?? null);
   const [now, setNow] = useState(() => Date.now());
   const t = useT();
-  const canTrade = useMeQuery().data?.role !== 'SUPERADMIN';
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -54,7 +52,7 @@ export function OpenTrades({ strategy }: { strategy?: StrategyId }) {
             },
           },
           { title: t('trades.colDuration'), render: (_, trade) => formatDuration(now - trade.confirmationTime) },
-          ...(canTrade ? [{ title: '', key: 'close', render: (_: unknown, trade: TradeDTO) => <ClosePositionButton strategy={trade.strategy as StrategyId} size="small" /> }] : []),
+          { title: '', key: 'close', render: (_: unknown, trade: TradeDTO) => <ClosePositionButton strategy={trade.strategy as StrategyId} size="small" /> },
         ]}
       />
     </Card>

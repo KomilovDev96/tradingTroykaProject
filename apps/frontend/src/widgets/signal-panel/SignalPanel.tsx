@@ -27,7 +27,6 @@ export function SignalPanel() {
   const toggleAnalysis = useToggleAnalysis();
 
   const paused = me?.analysisPaused ?? false;
-  const canTrade = me?.role !== 'SUPERADMIN'; // the super admin observes, it never holds positions
 
   const phase = output?.phase ?? 'WAITING';
   const isTrackingMovement = phase === 'ANALYZING_15M' || phase === 'BUY_READY' || phase === 'SELL_READY';
@@ -63,7 +62,7 @@ export function SignalPanel() {
           {signalLabel}
         </Tag>
       </div>
-      {paused && canTrade && (
+      {paused && (
         <Alert
           type="warning"
           showIcon
@@ -100,11 +99,9 @@ export function SignalPanel() {
       </Descriptions>
 
       <Space wrap style={{ marginTop: 16 }}>
-        {canTrade && (
-          <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
-            {paused ? t('signal.resume') : t('signal.pause')}
-          </Button>
-        )}
+        <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
+          {paused ? t('signal.resume') : t('signal.pause')}
+        </Button>
         <ClosePositionButton strategy={SCALPING} />
       </Space>
     </Card>

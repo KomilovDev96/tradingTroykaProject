@@ -1,8 +1,8 @@
 import { env } from './env';
 import { getOrCreateDefaultUser } from './db/userRepository';
-import { ensureSuperAdmin } from './db/accountRepository';
+import { ensureSuperAdmin, listActiveSuperAdminIds } from './db/accountRepository';
 import { hashPassword } from './auth/password';
-import { getOpenTrades } from './db/tradeRepository';
+import { createTradesForSignal, getOpenTrades, type TradeDTO } from './db/tradeRepository';
 import { EngineRunner } from './engine/runner';
 import { LongTermRunner } from './engine/longTermRunner';
 import { LONG_TERM_STRATEGY, SCALPING_STRATEGY } from './strategies';
@@ -71,6 +71,53 @@ async function main() {
     });
     console.log(`[troyka] Super admin ${env.superAdminEmail}: ${outcome}`);
   }
+
+  // The super admin used to only observe, so it holds no row for a position that opened before it could trade:
+  // give it one for the restored position (idempotent per signal and account, a closed one is never reopened).
+  const joinSuperAdmins = async (trade: TradeDTO | undefined) => {
+    if (!trade) return;
+    const accountIds = await listActiveSuperAdminIds();
+    if (accountIds.length === 0) return;
+    await createTradesForSignal(
+      {
+        userId,
+        symbol: trade.symbol,
+        strategy: trade.strategy,
+        timeframe: trade.timeframe,
+        sessionId: trade.sessionId,
+        direction: trade.direction,
+        rangeStart: trade.rangeStart,
+        rangeEnd: trade.rangeEnd,
+        highDemand: trade.highDemand,
+        lowDemand: trade.lowDemand,
+        rangePoints: trade.rangePoints,
+        upperLevel: trade.upperLevel,
+        lowerLevel: trade.lowerLevel,
+        movementStartTime: trade.movementStartTime,
+        movementStartPrice: trade.movementStartPrice,
+        confirmationTime: trade.confirmationTime,
+        entryPrice: trade.entryPrice,
+        stopLoss: trade.stopLoss,
+        signalId: trade.signalId,
+        longTerm:
+          trade.takeProfit1 !== null && trade.takeProfit2 !== null && trade.takeProfit3 !== null && trade.dailySpeed !== null && trade.breakevenStep !== null
+            ? {
+                dailySpeed: trade.dailySpeed,
+                breakevenStep: trade.breakevenStep,
+                initialStopLoss: trade.initialStopLoss ?? trade.stopLoss,
+                takeProfit1: trade.takeProfit1,
+                takeProfit2: trade.takeProfit2,
+                takeProfit3: trade.takeProfit3,
+                stage: trade.stage,
+                targetsHit: trade.targetsHit,
+              }
+            : undefined,
+      },
+      accountIds,
+    );
+  };
+  await joinSuperAdmins(openTrade);
+  await joinSuperAdmins(openLongTerm);
 
   const app = createApp(runner, longTermRunner);
   hub = app.hub;

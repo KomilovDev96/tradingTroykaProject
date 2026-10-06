@@ -87,7 +87,6 @@ export const uzCyrl: Dictionary = {
   'signal.closeFailed': 'Позицияни ёпиб бўлмади',
   'signal.closePosition': 'Позицияни ёпиш',
   'signal.closeNoPosition': 'Очиқ позиция йўқ',
-  'signal.closeObserver': 'Супер админ фақат кузатади, позиция очмайди',
   'signal.closeConfirm': 'Позиция жорий нархда ёпилсинми?',
   'signal.closeConfirmOk': 'Ёпиш',
   'signal.closeConfirmCancel': 'Бекор қилиш',

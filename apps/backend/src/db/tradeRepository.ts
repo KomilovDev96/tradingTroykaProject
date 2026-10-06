@@ -103,10 +103,14 @@ export interface CreateTradeParams {
   confirmationTime: number;
   entryPrice: number;
   stopLoss: number;
+  /** Joining an existing position: reuse its id instead of rebuilding it. */
+  signalId?: string;
   /** Long-term strategy: the speedometer targets frozen at entry. */
   longTerm?: {
     dailySpeed: number;
     breakevenStep: number;
+    /** Defaults to the stop at creation; differs when joining a position whose stop already moved. */
+    initialStopLoss?: number;
     takeProfit1: number;
     takeProfit2: number;
     takeProfit3: number;
@@ -120,7 +124,7 @@ export interface CreateTradeParams {
  * per (signalId, account) — a retry or duplicate tick never creates a second row for anyone.
  */
 export async function createTradesForSignal(params: CreateTradeParams, accountIds: string[]): Promise<number> {
-  const signalId = buildSignalId(params.strategy, params.symbol, params.movementStartTime, params.direction);
+  const signalId = params.signalId ?? buildSignalId(params.strategy, params.symbol, params.movementStartTime, params.direction);
   const { count } = await prisma.trade.createMany({
     skipDuplicates: true,
     data: accountIds.map((accountId) => ({
@@ -143,7 +147,7 @@ export async function createTradesForSignal(params: CreateTradeParams, accountId
       confirmationTime: new Date(params.confirmationTime),
       entryPrice: params.entryPrice,
       stopLoss: params.stopLoss,
-      ...(params.longTerm ? { ...params.longTerm, initialStopLoss: params.stopLoss } : {}),
+      ...(params.longTerm ? { ...params.longTerm, initialStopLoss: params.longTerm.initialStopLoss ?? params.stopLoss } : {}),
       signalId,
     })),
   });

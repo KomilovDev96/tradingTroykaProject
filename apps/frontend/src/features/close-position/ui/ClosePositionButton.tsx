@@ -1,7 +1,6 @@
 import { App, Button, Popconfirm, Tooltip, type ButtonProps } from 'antd';
 import { ApiError } from '../../../shared/api/httpClient';
 import { translateError, useT } from '../../../shared/i18n';
-import { useMeQuery } from '../../../entities/session/api/session';
 import type { StrategyId } from '../../../entities/strategy/model/types';
 import { useOpenTradesQuery } from '../../../entities/trade/api/queries';
 import { useClosePosition } from '../model/useClosePosition';
@@ -14,9 +13,8 @@ export function ClosePositionButton({ strategy, children, ...buttonProps }: Butt
   const t = useT();
   const { message } = App.useApp();
   const closePosition = useClosePosition(strategy);
-  const isObserver = useMeQuery().data?.role === 'SUPERADMIN';
   const hasPosition = (useOpenTradesQuery(strategy).data?.length ?? 0) > 0;
-  const hint = isObserver ? t('signal.closeObserver') : hasPosition ? null : t('signal.closeNoPosition');
+  const hint = hasPosition ? null : t('signal.closeNoPosition');
 
   const handleClose = async () => {
     try {

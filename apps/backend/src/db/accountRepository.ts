@@ -82,9 +82,15 @@ export async function setAccountPaused(accountId: string, paused: boolean): Prom
   return prisma.account.update({ where: { id: accountId }, data: { analysisPaused: paused }, select: ACCOUNT_SELECT });
 }
 
-/** Accounts that receive a position when a signal is confirmed: regular users who haven't paused. */
+/** Accounts that receive a position when a signal is confirmed: everyone who signs in and hasn't paused (the super admin too). */
 export async function listAccountIdsForNewPositions(): Promise<string[]> {
-  const rows = await prisma.account.findMany({ where: { role: 'USER', analysisPaused: false }, select: { id: true } });
+  const rows = await prisma.account.findMany({ where: { analysisPaused: false }, select: { id: true } });
+  return rows.map((r) => r.id);
+}
+
+/** Super admins who haven't paused — they used to be observers, so they have no row for a position opened before. */
+export async function listActiveSuperAdminIds(): Promise<string[]> {
+  const rows = await prisma.account.findMany({ where: { role: 'SUPERADMIN', analysisPaused: false }, select: { id: true } });
   return rows.map((r) => r.id);
 }
 
