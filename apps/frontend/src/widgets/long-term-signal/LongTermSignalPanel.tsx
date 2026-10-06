@@ -128,14 +128,14 @@ export function LongTermSignalPanel() {
         {position ? t('longTerm.singleTrade') : t('longTerm.rules')}
       </Typography.Paragraph>
 
-      {canTrade && (
-        <Space wrap style={{ marginTop: 16 }}>
+      <Space wrap style={{ marginTop: 16 }}>
+        {canTrade && (
           <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
             {paused ? t('signal.resume') : t('signal.pause')}
           </Button>
-          {position && <ClosePositionButton strategy={LONG_TERM} />}
-        </Space>
-      )}
+        )}
+        <ClosePositionButton strategy={LONG_TERM} />
+      </Space>
     </Card>
   );
 }

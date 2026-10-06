@@ -1,14 +1,22 @@
-import { App, Button, Popconfirm, type ButtonProps } from 'antd';
+import { App, Button, Popconfirm, Tooltip, type ButtonProps } from 'antd';
 import { ApiError } from '../../../shared/api/httpClient';
 import { translateError, useT } from '../../../shared/i18n';
+import { useMeQuery } from '../../../entities/session/api/session';
 import type { StrategyId } from '../../../entities/strategy/model/types';
+import { useOpenTradesQuery } from '../../../entities/trade/api/queries';
 import { useClosePosition } from '../model/useClosePosition';
 
-/** «Закрыть позицию» with a confirm step, shared by the chart overlay, the signal panel and the open trades table. */
+/**
+ * «Закрыть позицию» with a confirm step, shared by the chart overlay, the signal panel and the open trades table.
+ * Always visible to everyone: inactive (with a hint) while the account holds no position of this strategy.
+ */
 export function ClosePositionButton({ strategy, children, ...buttonProps }: ButtonProps & { strategy: StrategyId }) {
   const t = useT();
   const { message } = App.useApp();
   const closePosition = useClosePosition(strategy);
+  const isObserver = useMeQuery().data?.role === 'SUPERADMIN';
+  const hasPosition = (useOpenTradesQuery(strategy).data?.length ?? 0) > 0;
+  const hint = isObserver ? t('signal.closeObserver') : hasPosition ? null : t('signal.closeNoPosition');
 
   const handleClose = async () => {
     try {
@@ -18,6 +26,19 @@ export function ClosePositionButton({ strategy, children, ...buttonProps }: Butt
       message.error(err instanceof ApiError ? translateError(t, err.code, err.status) : t('signal.closeFailed'));
     }
   };
+
+  if (hint) {
+    // A disabled button swallows hover events, so the tooltip sits on a wrapper.
+    return (
+      <Tooltip title={hint}>
+        <span style={{ display: 'inline-block' }}>
+          <Button danger disabled {...buttonProps}>
+            {children ?? t('signal.closePosition')}
+          </Button>
+        </span>
+      </Tooltip>
+    );
+  }
 
   return (
     <Popconfirm

@@ -84,6 +84,8 @@ export const ru = {
   'signal.closedOk': 'Позиция отмечена как закрытая (виртуальный анализ, реальный ордер не отправлялся).',
   'signal.closeFailed': 'Не удалось закрыть позицию',
   'signal.closePosition': 'Закрыть позицию',
+  'signal.closeNoPosition': 'Нет открытой позиции',
+  'signal.closeObserver': 'Супер-админ только наблюдает и позиций не держит',
   'signal.closeConfirm': 'Закрыть позицию по текущей цене?',
   'signal.closeConfirmOk': 'Закрыть',
   'signal.closeConfirmCancel': 'Отмена',

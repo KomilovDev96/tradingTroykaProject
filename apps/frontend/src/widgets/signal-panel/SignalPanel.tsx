@@ -99,14 +99,14 @@ export function SignalPanel() {
         )}
       </Descriptions>
 
-      {canTrade && (
-        <Space wrap style={{ marginTop: 16 }}>
+      <Space wrap style={{ marginTop: 16 }}>
+        {canTrade && (
           <Button type={paused ? 'primary' : 'default'} disabled={!me} loading={toggleAnalysis.isPending} onClick={handleToggle}>
             {paused ? t('signal.resume') : t('signal.pause')}
           </Button>
-          {myPosition && <ClosePositionButton strategy={SCALPING} />}
-        </Space>
-      )}
+        )}
+        <ClosePositionButton strategy={SCALPING} />
+      </Space>
     </Card>
   );
 }
