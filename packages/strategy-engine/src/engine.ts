@@ -50,7 +50,7 @@ function candleDirection(candle: Candle): 'UP' | 'DOWN' | null {
 
 /**
  * Trailing Stop Loss for the current profit, or null while below the trigger.
- * Profit 40..59 locks +20, 60..79 locks +40, and so on (see TRAILING_TRIGGER_POINTS).
+ * Profit 4..5.99 locks +2, 6..7.99 locks +4, and so on (see TRAILING_TRIGGER_POINTS).
  */
 export function trailingStopLoss(position: Pick<ActivePosition, 'direction' | 'entryPrice'>, currentPrice: number): number | null {
   const profit = position.direction === 'BUY' ? currentPrice - position.entryPrice : position.entryPrice - currentPrice;

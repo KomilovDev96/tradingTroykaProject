@@ -165,7 +165,7 @@ export const CANDLES_TO_CONFIRM = 3;
 /**
  * Trailing stop: once the position is TRAILING_TRIGGER_POINTS in profit the Stop Loss moves to
  * entry + (trigger - step); every further TRAILING_STEP_POINTS of profit pulls it up by another step.
- * 40 → SL +20, 60 → SL +40, 80 → SL +60… It never moves back.
+ * +4 → SL +2, +6 → SL +4, +8 → SL +6… It never moves back. Points are price units (1 point = $1 on gold).
  */
-export const TRAILING_TRIGGER_POINTS = 40;
-export const TRAILING_STEP_POINTS = 20;
+export const TRAILING_TRIGGER_POINTS = 4;
+export const TRAILING_STEP_POINTS = 2;

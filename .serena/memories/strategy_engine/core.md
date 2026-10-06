@@ -6,7 +6,7 @@
   - 3H range = rolling `currentTime-3h..currentTime` over 5M candles, recomputed every tick; upper/lower = price ± rangePoints.
   - Signal = 3 consecutive CLOSED 5M candles same direction (close vs open); doji/reversal resets. Entry = live price at confirmation tick; SL = open of 1st candle in run.
   - SL checked every tick. No streak tracking while position active (duplicate protection).
-  - Trailing stop (after the hit test): profit ≥40 → SL entry±20, then +20 per further 20 points (`trailingStopLoss`, constants `TRAILING_*`), never loosens; emits STOP_LOSS_MOVED → backend `moveStopLoss` updates all OPEN rows of the signal. SL exit with pnl>0 is booked result=PROFIT.
+  - Trailing stop (after the hit test): profit ≥4 → SL entry±2, then +2 per further 2 points (1 point = $1) (`trailingStopLoss`, constants `TRAILING_*`), never loosens; emits STOP_LOSS_MOVED → backend `moveStopLoss` updates all OPEN rows of the signal. SL exit with pnl>0 is booked result=PROFIT.
   - First tick with `lastClosedCandleTime === null` does not replay history.
 - Emits explicit `events` (SIGNAL_CONFIRMED / STOP_LOSS_MOVED / STOP_LOSS_HIT / MANUAL_CLOSE) — backend persists from these, never from state diffs.
 - Engine `signalId` = `${movementStartTime}-${UP|DOWN}`; differs from DB signalId (see `mem:backend/core`).

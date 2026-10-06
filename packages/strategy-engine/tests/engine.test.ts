@@ -214,7 +214,7 @@ describe('Stop Loss (sections 7, 9, 29)', () => {
   });
 });
 
-describe('Trailing stop: +40 → SL +20, then +20 per step', () => {
+describe('Trailing stop: +4 → SL +2, then +2 per step', () => {
   // BUY entry 4685, initial SL 4669 (see the BUY confirmation test above).
   const c1 = candle(BASE, 4669, 4672);
   const c2 = candle(BASE + FIVE_MIN, 4672, 4678);
@@ -222,42 +222,42 @@ describe('Trailing stop: +40 → SL +20, then +20 per step', () => {
   const t = (n: number) => BASE + 3 * FIVE_MIN + n * 1000;
 
   it('maps profit to the locked stop, BUY and SELL', () => {
-    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 139.9)).toBeNull();
-    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 140)).toBe(120);
-    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 159.9)).toBe(120);
-    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 160)).toBe(140);
-    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 185)).toBe(160);
-    expect(trailingStopLoss({ direction: 'SELL', entryPrice: 100 }, 60)).toBe(80);
-    expect(trailingStopLoss({ direction: 'SELL', entryPrice: 100 }, 40)).toBe(60);
+    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 103.9)).toBeNull();
+    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 104)).toBe(102);
+    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 105.9)).toBe(102);
+    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 106)).toBe(104);
+    expect(trailingStopLoss({ direction: 'BUY', entryPrice: 100 }, 108.5)).toBe(106);
+    expect(trailingStopLoss({ direction: 'SELL', entryPrice: 100 }, 94)).toBe(96);
+    expect(trailingStopLoss({ direction: 'SELL', entryPrice: 100 }, 96)).toBe(98);
   });
 
-  it('does not move the stop below +40 profit', () => {
+  it('does not move the stop below +4 profit', () => {
     const { state } = runCandles([c1, c2, c3]);
-    const r = step(state, { currentPrice: 4685 + 39, currentTime: t(1), candles: [c1, c2, c3] });
+    const r = step(state, { currentPrice: 4685 + 3.9, currentTime: t(1), candles: [c1, c2, c3] });
     expect(r.output.stopLoss).toBe(4669);
     expect(r.output.events).toEqual([]);
   });
 
-  it('pulls the stop up at +40 and +60, and never back down', () => {
+  it('pulls the stop up at +4 and +6, and never back down', () => {
     let { state } = runCandles([c1, c2, c3]);
 
-    let r = step(state, { currentPrice: 4685 + 40, currentTime: t(1), candles: [c1, c2, c3] });
-    expect(r.output.stopLoss).toBe(4685 + 20);
-    expect(r.output.events[0]).toMatchObject({ type: 'STOP_LOSS_MOVED', previousStopLoss: 4669, stopLoss: 4705 });
+    let r = step(state, { currentPrice: 4685 + 4, currentTime: t(1), candles: [c1, c2, c3] });
+    expect(r.output.stopLoss).toBe(4685 + 2);
+    expect(r.output.events[0]).toMatchObject({ type: 'STOP_LOSS_MOVED', previousStopLoss: 4669, stopLoss: 4687 });
     state = r.state;
 
-    r = step(state, { currentPrice: 4685 + 61, currentTime: t(2), candles: [c1, c2, c3] });
-    expect(r.output.stopLoss).toBe(4685 + 40);
+    r = step(state, { currentPrice: 4685 + 6.1, currentTime: t(2), candles: [c1, c2, c3] });
+    expect(r.output.stopLoss).toBe(4685 + 4);
     state = r.state;
 
-    r = step(state, { currentPrice: 4685 + 45, currentTime: t(3), candles: [c1, c2, c3] });
-    expect(r.output.stopLoss).toBe(4685 + 40); // retrace doesn't loosen it
+    r = step(state, { currentPrice: 4685 + 4.5, currentTime: t(3), candles: [c1, c2, c3] });
+    expect(r.output.stopLoss).toBe(4685 + 4); // retrace doesn't loosen it
     expect(r.output.events).toEqual([]);
     state = r.state;
 
-    r = step(state, { currentPrice: 4685 + 40, currentTime: t(4), candles: [c1, c2, c3] });
+    r = step(state, { currentPrice: 4685 + 4, currentTime: t(4), candles: [c1, c2, c3] });
     expect(r.output.phase).toBe('STOP_LOSS_HIT');
-    expect(r.output.events[0]).toMatchObject({ type: 'STOP_LOSS_HIT', stopLoss: 4725, pnlPoints: 40 });
+    expect(r.output.events[0]).toMatchObject({ type: 'STOP_LOSS_HIT', stopLoss: 4689, pnlPoints: 4 });
   });
 
   it('trails a SELL position downward', () => {
@@ -265,8 +265,8 @@ describe('Trailing stop: +40 → SL +20, then +20 per step', () => {
     const s2 = candle(BASE + FIVE_MIN, 4666, 4660);
     const s3 = candle(BASE + 2 * FIVE_MIN, 4660, 4653);
     const { state } = runCandles([s1, s2, s3]);
-    const r = step(state, { currentPrice: 4653 - 60, currentTime: t(1), candles: [s1, s2, s3] });
-    expect(r.output.stopLoss).toBe(4653 - 40);
+    const r = step(state, { currentPrice: 4653 - 6, currentTime: t(1), candles: [s1, s2, s3] });
+    expect(r.output.stopLoss).toBe(4653 - 4);
   });
 });
 
