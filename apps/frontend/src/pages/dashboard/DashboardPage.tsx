@@ -1,7 +1,7 @@
 import { Col, Row, Space } from 'antd';
 import { useMarketStore } from '../../entities/market/model/store';
 import { SCALPING } from '../../entities/strategy/model/types';
-import { useSummaryStatsQuery, usePnlCurveQuery } from '../../entities/trade/api/queries';
+import { useOpenTradesQuery, useSummaryStatsQuery, usePnlCurveQuery } from '../../entities/trade/api/queries';
 import { resolvePeriod } from '../../shared/lib/period';
 import { MarketHeader } from '../../widgets/market-header/MarketHeader';
 import { TradingChart } from '../../widgets/trading-chart/TradingChart';
@@ -17,6 +17,8 @@ export function DashboardPage() {
   const candles = useMarketStore((s) => s.candles);
   const output = useMarketStore((s) => s.output);
   const timezone = useMarketStore((s) => s.timezone);
+  // The chart's entry/stop are this account's own position (the shared signal may outlive it).
+  const myPosition = useOpenTradesQuery(SCALPING).data?.[0] ?? null;
   const t = useT();
 
   const today = resolvePeriod('today', timezone);
@@ -38,8 +40,8 @@ export function DashboardPage() {
               { price: output?.lowDemand ?? null, color: '#e0a800', title: t('chart.lowDemand') },
               { price: output?.upperLevel ?? null, color: '#58a6ff', title: t('chart.upperLevel') },
               { price: output?.lowerLevel ?? null, color: '#58a6ff', title: t('chart.lowerLevel') },
-              { price: output?.entryPrice ?? null, color: '#3fb950', title: t('chart.entry') },
-              { price: output?.stopLoss ?? null, color: '#f85149', title: 'STOP LOSS' },
+              { price: myPosition?.entryPrice ?? null, color: '#3fb950', title: t('chart.entry') },
+              { price: myPosition?.stopLoss ?? null, color: '#f85149', title: 'STOP LOSS' },
             ]}
             overlay={<ChartPositionOverlay strategy={SCALPING} />}
           />

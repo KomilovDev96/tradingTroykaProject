@@ -46,7 +46,8 @@ export function SignalPanel() {
     }
   };
 
-  const signalLabel = output?.signal === 'BUY' || output?.signal === 'SELL' ? output.signal : paused ? t('phase.PAUSED') : t('phase.WAITING');
+  // Only this account's own position counts: the shared signal may still be active for others after this one closed.
+  const signalLabel = myPosition ? myPosition.direction : paused ? t('phase.PAUSED') : t('phase.WAITING');
   const myPnl =
     myPosition && output
       ? myPosition.direction === 'BUY'
@@ -58,7 +59,7 @@ export function SignalPanel() {
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 16, fontWeight: 600 }}>{t('signal.title')}</span>
-        <Tag color={SIGNAL_COLOR[output?.signal ?? 'WAIT']} style={{ fontSize: 16, padding: '2px 12px', margin: 0 }}>
+        <Tag color={SIGNAL_COLOR[myPosition?.direction ?? 'WAIT']} style={{ fontSize: 16, padding: '2px 12px', margin: 0 }}>
           {signalLabel}
         </Tag>
       </div>
@@ -85,8 +86,8 @@ export function SignalPanel() {
       <Descriptions column={1} size="small" bordered>
         <Descriptions.Item label={t('signal.potentialEntry')}>{fmt(output?.potentialEntryPrice)}</Descriptions.Item>
         <Descriptions.Item label={t('signal.potentialStopLoss')}>{fmt(output?.potentialStopLoss)}</Descriptions.Item>
-        <Descriptions.Item label={t('signal.entryConfirmed')}>{fmt(myPosition?.entryPrice ?? output?.entryPrice)}</Descriptions.Item>
-        <Descriptions.Item label={t('signal.stopLossConfirmed')}>{fmt(myPosition?.stopLoss ?? output?.stopLoss)}</Descriptions.Item>
+        <Descriptions.Item label={t('signal.entryConfirmed')}>{fmt(myPosition?.entryPrice)}</Descriptions.Item>
+        <Descriptions.Item label={t('signal.stopLossConfirmed')}>{fmt(myPosition?.stopLoss)}</Descriptions.Item>
         <Descriptions.Item label={t('signal.duration')}>{output ? t('signal.minutes', { n: durationMin }) : '—'}</Descriptions.Item>
         {myPosition && (
           <>

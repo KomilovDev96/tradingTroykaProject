@@ -19,9 +19,8 @@ export function LongTermPage() {
   const candles = useMarketStore((s) => s.longTermCandles);
   const output = useMarketStore((s) => s.longTermOutput);
   const timezone = useMarketStore((s) => s.timezone);
-  // Levels of this account's own position (it may have closed early); the shared one otherwise.
+  // Levels of this account's own position only (the shared one may still run for others after it closed).
   const mine = useOpenTradesQuery(LONG_TERM).data?.[0] ?? null;
-  const shared = output?.position ?? null;
 
   const today = resolvePeriod('today', timezone);
   const thisWeek = resolvePeriod('this_week', timezone);
@@ -29,27 +28,27 @@ export function LongTermPage() {
   const weekStats = useSummaryStatsQuery(thisWeek.from, thisWeek.to, LONG_TERM);
   const pnlCurve = usePnlCurveQuery(LONG_TERM);
 
-  const sign = (mine?.direction ?? shared?.direction) === 'SELL' ? -1 : 1;
-  const entry = mine?.entryPrice ?? shared?.entryPrice ?? null;
-  const step = mine?.breakevenStep ?? shared?.step ?? null;
-  const stage = mine?.stage ?? shared?.stage ?? 0;
+  const sign = mine?.direction === 'SELL' ? -1 : 1;
+  const entry = mine?.entryPrice ?? null;
+  const step = mine?.breakevenStep ?? null;
+  const stage = mine?.stage ?? 0;
   const levels: ChartLevel[] =
     entry !== null
       ? [
           { price: entry, color: '#3fb950', title: t('chart.entry'), lineStyle: 0 },
-          { price: mine?.stopLoss ?? shared?.stopLoss ?? null, color: '#f85149', title: 'STOP LOSS', lineStyle: 0 },
+          { price: mine?.stopLoss ?? null, color: '#f85149', title: 'STOP LOSS', lineStyle: 0 },
           // Steps already passed are where the stop now sits: no separate line.
           { price: step !== null && stage < 1 ? entry + sign * step : null, color: '#39c5cf', title: t('chart.step1') },
           { price: step !== null && stage < 2 ? entry + sign * 2 * step : null, color: '#39c5cf', title: t('chart.step2') },
-          { price: mine?.takeProfit1 ?? shared?.takeProfit1 ?? null, color: '#2ea043', title: 'TP1' },
-          { price: mine?.takeProfit2 ?? shared?.takeProfit2 ?? null, color: '#2ea043', title: 'TP2' },
-          { price: mine?.takeProfit3 ?? shared?.takeProfit3 ?? null, color: '#00e676', title: 'TP3', lineStyle: 0 },
+          { price: mine?.takeProfit1 ?? null, color: '#2ea043', title: 'TP1' },
+          { price: mine?.takeProfit2 ?? null, color: '#2ea043', title: 'TP2' },
+          { price: mine?.takeProfit3 ?? null, color: '#00e676', title: 'TP3', lineStyle: 0 },
         ]
       : [{ price: output?.potentialStopLoss ?? null, color: '#f85149', title: t('chart.potentialStopLoss') }];
 
   return (
     <Space orientation="vertical" size="large" className="page">
-      <MarketHeader phase={output?.phase} />
+      <MarketHeader strategy={LONG_TERM} />
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={17}>

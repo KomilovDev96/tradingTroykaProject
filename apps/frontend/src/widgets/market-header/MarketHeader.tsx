@@ -2,6 +2,8 @@ import { Badge, Card, Select, Space, Statistic, Typography } from 'antd';
 import { useMarketStore } from '../../entities/market/model/store';
 import { BROWSER_TIMEZONE } from '../../shared/lib/time';
 import { useMeQuery } from '../../entities/session/api/session';
+import { useOpenTradesQuery } from '../../entities/trade/api/queries';
+import { LONG_TERM, SCALPING, type StrategyId } from '../../entities/strategy/model/types';
 import { useT, type TranslationKey } from '../../shared/i18n';
 
 const TIMEZONE_OPTIONS = Array.from(
@@ -23,10 +25,15 @@ const PHASE_COLOR: Record<string, string> = {
   NO_SPEED: 'warning',
 };
 
-/** `phase`: the long-term page shows its own engine's phase instead of the scalping one. */
-export function MarketHeader({ phase: phaseOverride }: { phase?: string } = {}) {
+/**
+ * `strategy` picks whose engine phase is shown. The engine's position is shared, but «Закрыть позицию» only
+ * closes the caller's own: an account without its own position sees ЗАКРЫТО, not the others' BUY/SELL.
+ */
+export function MarketHeader({ strategy = SCALPING }: { strategy?: StrategyId } = {}) {
   const instrument = useMarketStore((s) => s.instrument);
   const output = useMarketStore((s) => s.output);
+  const enginePhaseOf = useMarketStore((s) => (strategy === LONG_TERM ? s.longTermOutput : s.output)?.phase);
+  const openTrades = useOpenTradesQuery(strategy).data;
   const connectionStatus = useMarketStore((s) => s.connectionStatus);
   const timezone = useMarketStore((s) => s.timezone);
   const setTimezone = useMarketStore((s) => s.setTimezone);
@@ -34,7 +41,9 @@ export function MarketHeader({ phase: phaseOverride }: { phase?: string } = {}) 
   const t = useT();
   const paused = useMeQuery().data?.analysisPaused ?? false;
   // The engine's phase is shared; a paused account sees PAUSED instead of the shared signal hunt.
-  const enginePhase = phaseOverride ?? output?.phase ?? 'WAITING';
+  const sharedPhase = enginePhaseOf ?? 'WAITING';
+  const closedByMe = sharedPhase.endsWith('_ACTIVE') && openTrades !== undefined && openTrades.length === 0;
+  const enginePhase = closedByMe ? 'CLOSED' : sharedPhase;
   const phase = paused && !enginePhase.endsWith('_ACTIVE') ? 'PAUSED' : enginePhase;
 
   return (
