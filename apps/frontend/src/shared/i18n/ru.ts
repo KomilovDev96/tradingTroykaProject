@@ -1,6 +1,6 @@
 /** Source dictionary: every key here must exist in uzCyrl.ts and uzLatn.ts (enforced by the Dictionary type). */
 export const ru = {
-  'app.name': 'Тройка',
+  'app.name': 'BKX Signals',
   'app.language': 'Язык',
 
   'nav.dashboard': 'Дашборд',

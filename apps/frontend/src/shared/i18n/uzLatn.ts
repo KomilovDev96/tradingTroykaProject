@@ -2,7 +2,7 @@ import type { Dictionary } from './ru';
 
 /** Oʻzbekcha (lotin). Uses the official ʻ (U+02BB) in oʻ/gʻ and ʼ (U+02BC) for the tutuq belgisi. */
 export const uzLatn: Dictionary = {
-  'app.name': 'Troyka',
+  'app.name': 'BKX Signals',
   'app.language': 'Til',
 
   'nav.dashboard': 'Bosh sahifa',

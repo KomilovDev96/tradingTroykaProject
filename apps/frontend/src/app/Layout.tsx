@@ -30,9 +30,7 @@ export function Layout() {
     logout.mutate(undefined, { onSettled: () => navigate('/login', { replace: true }) });
   };
 
-  // Phones get a hamburger + drawer; a horizontal menu would collapse all items into "…".
   const isPhone = !screens.sm;
-  // The name/language/logout cluster needs room: inline from lg, in the drawer below that.
   const accountInline = Boolean(screens.lg);
 
   const accountControls = (
@@ -46,8 +44,31 @@ export function Layout() {
 
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
-      <AntLayout.Header style={{ display: 'flex', alignItems: 'center', gap: isPhone ? 12 : 24 }}>
-        <span style={{ color: '#fff', fontWeight: 700, fontSize: 18, flex: isPhone ? 1 : undefined }}>{t('app.name')}</span>
+      <AntLayout.Header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: isPhone ? 12 : 24,
+          paddingInline: isPhone ? 16 : 24,
+        }}
+      >
+        <Link
+          to="/"
+          aria-label={t('app.name')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            flexShrink: 0,
+            maxWidth: isPhone ? 150 : 205,
+            height: 42,
+          }}
+        >
+          <img
+            src="/brand/bkx-signals-logo.png"
+            alt={t('app.name')}
+            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'left center' }}
+          />
+        </Link>
         {!isPhone && (
           <Menu theme="dark" mode="horizontal" selectedKeys={[location.pathname]} items={navItems} style={{ flex: 1, minWidth: 0 }} />
         )}

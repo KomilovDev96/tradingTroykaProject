@@ -2,7 +2,7 @@ import type { Dictionary } from './ru';
 
 /** Ўзбекча (кирилл). */
 export const uzCyrl: Dictionary = {
-  'app.name': 'Тройка',
+  'app.name': 'BKX Signals',
   'app.language': 'Тил',
 
   'nav.dashboard': 'Бош саҳифа',
