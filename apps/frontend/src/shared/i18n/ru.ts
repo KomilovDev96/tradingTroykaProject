@@ -346,6 +346,8 @@ export const ru = {
   'ai.points': "п.",
   'strategyName.ai': "ИИ-стратегия",
   'ai.lastTradeClosed': "Последняя сделка закрыта",
+  'ai.filterAll': "Все",
+  'ai.total': "Всего",
 } as const;
 
 export type TranslationKey = keyof typeof ru;

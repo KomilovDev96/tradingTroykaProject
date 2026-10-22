@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getJson, postJson } from '../../../shared/api/httpClient';
 
 export interface AiAnalysis {
@@ -69,6 +69,19 @@ export function useAiClosePosition() {
   return useMutation({
     mutationFn: () => postJson('/api/ai/close-position'),
     onSettled: () =>
-      queryClient.invalidateQueries({ predicate: (q) => ['ai-status', 'open-trades', 'trades', 'stats'].includes(q.queryKey[0] as string) }),
+      queryClient.invalidateQueries({ predicate: (q) => ['ai-status', 'ai-analyses', 'open-trades', 'trades', 'stats'].includes(q.queryKey[0] as string) }),
+  });
+}
+
+export type AiDecisionFilter = 'ALL' | 'BUY' | 'SELL' | 'SKIP';
+
+/** One server-side page of the stored analyses; refreshes by itself so new answers show up. */
+export function useAiAnalyses(page: number, pageSize: number, decision: AiDecisionFilter) {
+  return useQuery({
+    queryKey: ['ai-analyses', page, pageSize, decision],
+    queryFn: () =>
+      getJson<{ items: AiAnalysis[]; total: number }>('/api/ai/analyses', { page, pageSize, decision: decision === 'ALL' ? undefined : decision }),
+    placeholderData: keepPreviousData,
+    refetchInterval: 15000,
   });
 }

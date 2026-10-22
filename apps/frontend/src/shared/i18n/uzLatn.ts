@@ -348,4 +348,6 @@ export const uzLatn: Dictionary = {
   'ai.points': "p.",
   'strategyName.ai': "AI-strategiya",
   'ai.lastTradeClosed': "Oxirgi savdo yopildi",
+  'ai.filterAll': "Hammasi",
+  'ai.total': "Jami",
 };

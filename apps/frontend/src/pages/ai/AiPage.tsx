@@ -1,12 +1,13 @@
-import { Alert, App, Button, Card, Col, Descriptions, List, Progress, Row, Space, Statistic, Switch, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Col, Descriptions, List, Progress, Row, Segmented, Space, Statistic, Switch, Tag, Typography } from 'antd';
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMarketStore } from '../../entities/market/model/store';
 import { TradingChart, type ChartLevel } from '../../widgets/trading-chart/TradingChart';
 import { OpenTrades } from '../../widgets/open-trades/OpenTrades';
 import { AI } from '../../entities/strategy/model/types';
 import { useTradesQuery } from '../../entities/trade/api/queries';
 import { MarketHeader } from '../../widgets/market-header/MarketHeader';
-import { useAiClosePosition, useAiToggle, useAiStatus, type AiAnalysis, type AiStatus } from '../../entities/ai/api/ai';
+import { useAiAnalyses, useAiClosePosition, useAiToggle, useAiStatus, type AiAnalysis, type AiDecisionFilter, type AiStatus } from '../../entities/ai/api/ai';
 import { formatTime } from '../../shared/lib/time';
 import { ApiError } from '../../shared/api/httpClient';
 import { translateError, useT } from '../../shared/i18n';
@@ -90,6 +91,63 @@ function PositionOverlay() {
     <Button type="primary" size="small" danger loading={close.isPending} onClick={handle}>
       {t('ai.closePosition')}
     </Button>
+  );
+}
+
+const PAGE_SIZE = 10;
+
+/** Every stored answer, loaded page by page from the backend; a new answer refreshes the list. */
+function AnalysisHistory({ latestId }: { latestId: string | null }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState<AiDecisionFilter>('ALL');
+  const { data, isFetching } = useAiAnalyses(page, PAGE_SIZE, filter);
+
+  useEffect(() => {
+    if (latestId) void queryClient.invalidateQueries({ queryKey: ['ai-analyses'] });
+  }, [latestId, queryClient]);
+
+  return (
+    <Card
+      title={t('ai.history')}
+      extra={
+        <Segmented<AiDecisionFilter>
+          size="small"
+          value={filter}
+          onChange={(value) => {
+            setFilter(value);
+            setPage(1);
+          }}
+          options={[
+            { value: 'ALL', label: t('ai.filterAll') },
+            { value: 'BUY', label: 'BUY' },
+            { value: 'SELL', label: 'SELL' },
+            { value: 'SKIP', label: t('ai.skip') },
+          ]}
+        />
+      }
+    >
+      <List
+        loading={isFetching && !data}
+        dataSource={data?.items ?? []}
+        locale={{ emptyText: t('ai.noAnalysis') }}
+        renderItem={(item) => (
+          <List.Item key={item.id}>
+            <AnalysisBlock item={item} />
+          </List.Item>
+        )}
+        pagination={{
+          current: page,
+          pageSize: PAGE_SIZE,
+          total: data?.total ?? 0,
+          showSizeChanger: false,
+          hideOnSinglePage: true,
+          onChange: setPage,
+          showTotal: (total) => `${t('ai.total')}: ${total}`,
+        }}
+      />
+    </Card>
   );
 }
 
@@ -243,11 +301,7 @@ export function AiPage() {
 
       <OpenTrades strategy={AI} />
 
-      {status.history.length > 0 && (
-        <Card title={t('ai.history')}>
-          <List dataSource={status.history} renderItem={(item) => <List.Item key={item.id}><AnalysisBlock item={item} /></List.Item>} />
-        </Card>
-      )}
+      <AnalysisHistory latestId={status.last?.id ?? null} />
     </Space>
   );
 }

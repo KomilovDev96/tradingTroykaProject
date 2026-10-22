@@ -6,7 +6,7 @@ import { env } from './env';
 import type { EngineRunner } from './engine/runner';
 import type { LongTermRunner } from './engine/longTermRunner';
 import type { AiRunner } from './engine/aiRunner';
-import { listAiAnalyses } from './db/aiRepository';
+import { listAiAnalysesPage } from './db/aiRepository';
 import { AI_STRATEGY, LONG_TERM_STRATEGY, parseStrategy } from './strategies';
 import { getAllClosedTrades, getClosedTradesInRange, getOpenTrades, listTrades, type TradeFilters } from './db/tradeRepository';
 import { computeByDayOfWeek, computeByDirection, computePnlCurve, computeStopLossStats, computeSummary } from './stats/computeStats';
@@ -206,11 +206,12 @@ export function createApp(runner: EngineRunner, longTermRunner: LongTermRunner, 
   };
   const aiStatus = (res: Response) => res.json(aiRunner.getStatus());
   app.get('/api/ai/status', requireSuperAdmin, (_req, res) => aiStatus(res));
-  /** Every stored answer of the AI (BUY/SELL/SKIP, rejected ones too), newest first; `before` = ms epoch for paging. */
+  /** Stored answers of the AI (rejected ones too), newest first: `?page=1&pageSize=10&decision=BUY|SELL|SKIP` → `{ items, total }`. */
   app.get('/api/ai/analyses', requireSuperAdmin, route(async (req, res) => {
-    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
-    const before = req.query.before ? Number(req.query.before) : undefined;
-    res.json(await listAiAnalyses(limit, before));
+    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 10));
+    const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
+    const decision = req.query.decision === 'BUY' || req.query.decision === 'SELL' || req.query.decision === 'SKIP' ? req.query.decision : undefined;
+    res.json(await listAiAnalysesPage(page, pageSize, decision));
   }));
   app.post('/api/ai/enable', requireSuperAdmin, (_req, res) => {
     try {

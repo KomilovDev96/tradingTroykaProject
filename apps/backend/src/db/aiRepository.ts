@@ -78,3 +78,13 @@ export async function writeAiEnabled(enabled: boolean): Promise<void> {
     create: { key: AI_ENABLED_KEY, value: String(enabled) },
   });
 }
+
+/** One page of stored answers, newest first, optionally only BUY / SELL / SKIP. */
+export async function listAiAnalysesPage(page: number, pageSize: number, decision?: 'BUY' | 'SELL' | 'SKIP') {
+  const where = decision ? { decision } : undefined;
+  const [rows, total] = await Promise.all([
+    prisma.aiAnalysis.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+    prisma.aiAnalysis.count({ where }),
+  ]);
+  return { items: rows.map(toRecord), total };
+}
