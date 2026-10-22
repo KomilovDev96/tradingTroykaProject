@@ -88,3 +88,26 @@ export async function listAiAnalysesPage(page: number, pageSize: number, decisio
   ]);
   return { items: rows.map(toRecord), total };
 }
+
+/** How the AI behaved in a period: answers by decision, how many became trades, what it cost. */
+export async function aiStatsInRange(from: number, to: number) {
+  const where = { createdAt: { gte: new Date(from), lte: new Date(to) } };
+  const [byDecision, opened, rejected, sum] = await Promise.all([
+    prisma.aiAnalysis.groupBy({ by: ['decision'], where, _count: { _all: true } }),
+    prisma.aiAnalysis.count({ where: { ...where, signalId: { not: null } } }),
+    prisma.aiAnalysis.count({ where: { ...where, signalId: null, decision: { not: 'SKIP' } } }),
+    prisma.aiAnalysis.aggregate({ where, _count: { _all: true }, _sum: { inputTokens: true, outputTokens: true, costUsd: true } }),
+  ]);
+  const count = (d: string) => byDecision.find((r) => r.decision === d)?._count._all ?? 0;
+  return {
+    requests: sum._count._all,
+    buy: count('BUY'),
+    sell: count('SELL'),
+    skip: count('SKIP'),
+    opened,
+    rejected,
+    inputTokens: sum._sum.inputTokens ?? 0,
+    outputTokens: sum._sum.outputTokens ?? 0,
+    costUsd: Number(sum._sum.costUsd ?? 0),
+  };
+}

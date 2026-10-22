@@ -348,6 +348,14 @@ export const ru = {
   'ai.lastTradeClosed': "Последняя сделка закрыта",
   'ai.filterAll': "Все",
   'ai.total': "Всего",
+  'aiStats.title': "Как работает ИИ",
+  'aiStats.how': "Каждую минуту ИИ анализирует рынок и отвечает BUY, SELL или пропуск. Код проверяет вход, стоп и цель (сторона, расстояние, прибыль к риску): прошедший проверку ответ становится сделкой, остальные отклоняются. Ниже — что ИИ ответил за период и во что это обошлось.",
+  'aiStats.opened': "Стали сделками",
+  'aiStats.rejected': "Отклонено проверкой",
+  'aiStats.cost': "Расход на ИИ",
+  'aiStats.costPerTrade': "Расход на сделку",
+  'aiStats.tradeShare': "Доля запросов, ставших сделкой",
+  'aiStats.net': "Итог сделок",
 } as const;
 
 export type TranslationKey = keyof typeof ru;

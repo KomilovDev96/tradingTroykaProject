@@ -7,8 +7,11 @@ import {
   useStopLossStatsQuery,
   useSummaryStatsQuery,
 } from '../../entities/trade/api/queries';
+import { useAiStats } from '../../entities/ai/api/ai';
+import { useMeQuery } from '../../entities/session/api/session';
+import { AiStatsCard } from '../../widgets/ai-stats/AiStatsCard';
 import { useMarketStore } from '../../entities/market/model/store';
-import { LONG_TERM, SCALPING, type StrategyId } from '../../entities/strategy/model/types';
+import { AI, LONG_TERM, SCALPING, type StrategyId } from '../../entities/strategy/model/types';
 import { PeriodSelector } from '../../shared/ui/PeriodSelector';
 import { resolvePeriod, type PeriodKey, type PeriodRange } from '../../shared/lib/period';
 import { SummaryStatCards } from '../../widgets/stats-cards/SummaryStatCards';
@@ -22,6 +25,7 @@ export function AnalyticsPage() {
   const [period, setPeriod] = useState<PeriodKey>('today');
   const [customRange, setCustomRange] = useState<PeriodRange>();
   const [strategy, setStrategy] = useState<StrategyId | 'ALL'>('ALL');
+  const isSuperAdmin = useMeQuery().data?.role === 'SUPERADMIN';
   const selected = strategy === 'ALL' ? undefined : strategy;
 
   const { from, to } = resolvePeriod(period, timezone, customRange);
@@ -31,6 +35,8 @@ export function AnalyticsPage() {
   const stopLoss = useStopLossStatsQuery(from, to, selected);
   const byDay = useByDayStatsQuery(from, to, timezone, selected);
   const pnlCurve = usePnlCurveQuery(selected);
+  const aiSelected = isSuperAdmin && strategy === AI;
+  const aiStats = useAiStats(from, to, aiSelected);
 
   return (
     <Space orientation="vertical" size="large" className="page">
@@ -41,10 +47,12 @@ export function AnalyticsPage() {
           { value: 'ALL', label: t('trades.allStrategies') },
           { value: SCALPING, label: t('strategyName.scalping') },
           { value: LONG_TERM, label: t('strategyName.longTerm') },
+          ...(isSuperAdmin ? [{ value: AI, label: t('strategyName.ai') }] : []),
         ]}
       />
       <PeriodSelector period={period} onPeriodChange={setPeriod} customRange={customRange} onCustomRangeChange={setCustomRange} />
 
+      {aiSelected && <AiStatsCard stats={aiStats.data} loading={aiStats.isLoading} trades={summary.data?.trades ?? 0} net={summary.data?.net ?? 0} />}
       <SummaryStatCards title={t('stats.title')} stats={summary.data} loading={summary.isLoading} />
       <ByDirectionStatsCard stats={byDirection.data} loading={byDirection.isLoading} />
       <StopLossStatsCard stats={stopLoss.data} loading={stopLoss.isLoading} />

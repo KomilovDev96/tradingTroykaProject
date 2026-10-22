@@ -350,4 +350,12 @@ export const uzLatn: Dictionary = {
   'ai.lastTradeClosed': "Oxirgi savdo yopildi",
   'ai.filterAll': "Hammasi",
   'ai.total': "Jami",
+  'aiStats.title': "AI qanday ishlaydi",
+  'aiStats.how': "AI har daqiqada bozorni tahlil qilib, BUY, SELL yoki oʻtkazib yuborish deb javob beradi. Kod kirish, stop va maqsadni tekshiradi (tomon, masofa, foyda/risk): oʻtgan javob savdoga aylanadi, qolganlari rad etiladi. Quyida davr uchun AI javoblari va xarajati.",
+  'aiStats.opened': "Savdoga aylandi",
+  'aiStats.rejected': "Tekshiruvda rad etildi",
+  'aiStats.cost': "AI xarajati",
+  'aiStats.costPerTrade': "Savdoga xarajat",
+  'aiStats.tradeShare': "Savdoga aylangan soʻrovlar ulushi",
+  'aiStats.net': "Savdolar natijasi",
 };

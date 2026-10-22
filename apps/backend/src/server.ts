@@ -6,7 +6,7 @@ import { env } from './env';
 import type { EngineRunner } from './engine/runner';
 import type { LongTermRunner } from './engine/longTermRunner';
 import type { AiRunner } from './engine/aiRunner';
-import { listAiAnalysesPage } from './db/aiRepository';
+import { aiStatsInRange, listAiAnalysesPage } from './db/aiRepository';
 import { AI_STRATEGY, LONG_TERM_STRATEGY, parseStrategy } from './strategies';
 import { getAllClosedTrades, getClosedTradesInRange, getOpenTrades, listTrades, type TradeFilters } from './db/tradeRepository';
 import { computeByDayOfWeek, computeByDirection, computePnlCurve, computeStopLossStats, computeSummary } from './stats/computeStats';
@@ -212,6 +212,9 @@ export function createApp(runner: EngineRunner, longTermRunner: LongTermRunner, 
     const page = Math.max(1, Math.floor(Number(req.query.page) || 1));
     const decision = req.query.decision === 'BUY' || req.query.decision === 'SELL' || req.query.decision === 'SKIP' ? req.query.decision : undefined;
     res.json(await listAiAnalysesPage(page, pageSize, decision));
+  }));
+  app.get('/api/ai/stats', requireSuperAdmin, route(async (req, res) => {
+    res.json(await aiStatsInRange(Number(req.query.from), Number(req.query.to)));
   }));
   app.post('/api/ai/enable', requireSuperAdmin, (_req, res) => {
     try {

@@ -85,3 +85,23 @@ export function useAiAnalyses(page: number, pageSize: number, decision: AiDecisi
     refetchInterval: 15000,
   });
 }
+
+export interface AiPeriodStats {
+  requests: number;
+  buy: number;
+  sell: number;
+  skip: number;
+  opened: number;
+  rejected: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+}
+
+export function useAiStats(from: number, to: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['ai-stats', from, to],
+    queryFn: () => getJson<AiPeriodStats>('/api/ai/stats', { from, to }),
+    enabled,
+  });
+}
