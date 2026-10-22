@@ -334,4 +334,7 @@ export const uzLatn: Dictionary = {
   'ai.notTraded': "Savdo qilinmadi",
   'ai.toggleFailed': "Amalni bajarib boʻlmadi",
   'error.AI_NOT_CONFIGURED': "Serverda ANTHROPIC_API_KEY berilmagan",
+  'ai.signalTitle': "AI signali",
+  'ai.analyzingShort': "TAHLIL…",
+  'ai.waitingShort': "KUTISH",
 };

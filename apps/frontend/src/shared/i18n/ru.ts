@@ -332,6 +332,9 @@ export const ru = {
   'ai.notTraded': "Не торгуем",
   'ai.toggleFailed': "Не удалось выполнить действие",
   'error.AI_NOT_CONFIGURED': "Ключ ANTHROPIC_API_KEY не задан на сервере",
+  'ai.signalTitle': "Сигнал ИИ",
+  'ai.analyzingShort': "АНАЛИЗ…",
+  'ai.waitingShort': "ОЖИДАНИЕ",
 } as const;
 
 export type TranslationKey = keyof typeof ru;

@@ -1,5 +1,8 @@
-import { Alert, App, Button, Card, Col, Descriptions, Empty, List, Progress, Row, Space, Statistic, Switch, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Col, Descriptions, List, Progress, Row, Space, Statistic, Switch, Tag, Typography } from 'antd';
 import { useEffect, useState } from 'react';
+import { useMarketStore } from '../../entities/market/model/store';
+import { TradingChart, type ChartLevel } from '../../widgets/trading-chart/TradingChart';
+import { MarketHeader } from '../../widgets/market-header/MarketHeader';
 import { useAiClosePosition, useAiToggle, useAiStatus, type AiAnalysis } from '../../entities/ai/api/ai';
 import { ApiError } from '../../shared/api/httpClient';
 import { translateError, useT } from '../../shared/i18n';
@@ -44,13 +47,25 @@ function AnalysisBlock({ item }: { item: AiAnalysis }) {
   );
 }
 
+function PositionOverlay() {
+  const t = useT();
+  const { message } = App.useApp();
+  const close = useAiClosePosition();
+  const handle = () => close.mutateAsync().catch(() => message.error(t('ai.toggleFailed')));
+  return (
+    <Button type="primary" size="small" danger loading={close.isPending} onClick={handle}>
+      {t('ai.closePosition')}
+    </Button>
+  );
+}
+
 /** «ИИ-стратегия» (super admin only): Claude finds entry/stop/target; code opens, protects and trails the position. */
 export function AiPage() {
   const t = useT();
   const { message } = App.useApp();
   const { data: status } = useAiStatus();
   const toggle = useAiToggle();
-  const close = useAiClosePosition();
+  const candles = useMarketStore((s) => s.candles);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -68,14 +83,6 @@ export function AiPage() {
     }
   };
 
-  const handleClose = async () => {
-    try {
-      await close.mutateAsync();
-    } catch (err) {
-      message.error(err instanceof ApiError ? translateError(t, err.code, err.status) : t('ai.toggleFailed'));
-    }
-  };
-
   const waitSec = status.nextAnalysisAt ? Math.max(0, Math.ceil((status.nextAnalysisAt - now) / 1000)) : null;
   const stateText = !status.enabled
     ? t('ai.stateOff')
@@ -86,6 +93,21 @@ export function AiPage() {
         : t('ai.stateNext').replace('{n}', String(waitSec ?? 0));
   const rate = status.rateLimit;
   const pos = status.position;
+
+  // Live position when there is one; otherwise the model's latest proposal (dashed) so the idea is visible on the chart.
+  const idea = !pos && status.last && status.last.decision !== 'SKIP' && !status.last.rejected ? status.last : null;
+  const levels: ChartLevel[] = pos
+    ? [
+        { price: pos.entryPrice, color: '#3fb950', title: t('chart.entry'), lineStyle: 0 },
+        { price: pos.stopLoss, color: '#f85149', title: 'STOP LOSS', lineStyle: 0 },
+        { price: pos.stage >= 1 ? null : pos.initialStopLoss === pos.stopLoss ? null : pos.initialStopLoss, color: '#e0a800', title: t('ai.initialStop') },
+        { price: pos.takeProfit, color: '#00e676', title: 'TP', lineStyle: 0 },
+      ]
+    : [
+        { price: idea?.entry ?? null, color: '#3fb950', title: t('chart.entry') },
+        { price: idea?.stopLoss ?? null, color: '#f85149', title: 'STOP LOSS' },
+        { price: idea?.takeProfit ?? null, color: '#00e676', title: 'TP' },
+      ];
 
   return (
     <Space orientation="vertical" size="large" className="page">
@@ -111,30 +133,53 @@ export function AiPage() {
         </Space>
       </Card>
 
+      <MarketHeader />
+
       <Row gutter={[16, 16]}>
-        <Col xs={24} xl={12}>
-          <Card title={t('ai.position')} extra={pos && <Button danger size="small" loading={close.isPending} onClick={handleClose}>{t('ai.closePosition')}</Button>}>
-            {pos ? (
-              <Descriptions column={1} size="small">
-                <Descriptions.Item label={t('ai.direction')}>
-                  <Tag color={pos.direction === 'BUY' ? 'success' : 'error'}>{pos.direction}</Tag>
-                  {pos.stage >= 1 && <Tag color="processing">{t('ai.breakeven')}</Tag>}
-                </Descriptions.Item>
-                <Descriptions.Item label={t('ai.entry')}>{fmt(pos.entryPrice)}</Descriptions.Item>
-                <Descriptions.Item label="Stop Loss">{fmt(pos.stopLoss)}</Descriptions.Item>
-                <Descriptions.Item label={t('ai.initialStop')}>{fmt(pos.initialStopLoss)}</Descriptions.Item>
-                <Descriptions.Item label={t('ai.takeProfit')}>{fmt(pos.takeProfit)}</Descriptions.Item>
-                <Descriptions.Item label={t('ai.price')}>{fmt(status.price)}</Descriptions.Item>
-                <Descriptions.Item label="PnL">
-                  <Typography.Text type={pos.pnlPoints >= 0 ? 'success' : 'danger'}>{pos.pnlPoints >= 0 ? '+' : ''}{pos.pnlPoints.toFixed(2)}</Typography.Text>
-                </Descriptions.Item>
-              </Descriptions>
-            ) : (
-              <Empty description={t('ai.noPosition')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            )}
+        <Col xs={24} xl={17}>
+          <TradingChart candles={candles} levels={levels} overlay={pos ? <PositionOverlay /> : undefined} />
+        </Col>
+        <Col xs={24} xl={7}>
+          <Card title={t('ai.signalTitle')} loading={false}>
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+              <Tag color={pos ? (pos.direction === 'BUY' ? 'success' : 'error') : status.enabled ? 'processing' : 'default'} style={{ fontSize: 16, padding: '4px 12px' }}>
+                {pos ? pos.direction : status.enabled ? (status.analyzing ? t('ai.analyzingShort') : t('ai.waitingShort')) : t('ai.off')}
+              </Tag>
+              {pos ? (
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label={t('ai.entry')}>{fmt(pos.entryPrice)}</Descriptions.Item>
+                  <Descriptions.Item label="Stop Loss">
+                    {fmt(pos.stopLoss)} {pos.stage >= 1 && <Tag color="processing">{t('ai.breakeven')}</Tag>}
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t('ai.takeProfit')}>{fmt(pos.takeProfit)}</Descriptions.Item>
+                  <Descriptions.Item label={t('ai.price')}>{fmt(status.price)}</Descriptions.Item>
+                  <Descriptions.Item label="PnL">
+                    <Typography.Text type={pos.pnlPoints >= 0 ? 'success' : 'danger'}>{pos.pnlPoints >= 0 ? '+' : ''}{pos.pnlPoints.toFixed(2)}</Typography.Text>
+                  </Descriptions.Item>
+                </Descriptions>
+              ) : idea ? (
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label={t('ai.entry')}>{fmt(idea.entry)}</Descriptions.Item>
+                  <Descriptions.Item label="Stop Loss">{fmt(idea.stopLoss)}</Descriptions.Item>
+                  <Descriptions.Item label={t('ai.takeProfit')}>{fmt(idea.takeProfit)}</Descriptions.Item>
+                </Descriptions>
+              ) : (
+                <Typography.Text type="secondary">{t('ai.noPosition')}</Typography.Text>
+              )}
+              {status.last?.analysis && (
+                <div>
+                  <Typography.Text type="secondary">{t('ai.lastAnalysis')} · {new Date(status.last.time).toLocaleTimeString()}</Typography.Text>
+                  <Typography.Paragraph style={{ marginTop: 4, marginBottom: 0 }}>{status.last.analysis}</Typography.Paragraph>
+                </div>
+              )}
+              {status.last?.rejected && <Alert type="warning" showIcon title={`${t('ai.notTraded')}: ${status.last.rejected}`} />}
+            </Space>
           </Card>
         </Col>
-        <Col xs={24} xl={12}>
+      </Row>
+
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={24}>
           <Card title={t('ai.usage')}>
             <Space orientation="vertical" size={12} style={{ width: '100%' }}>
               <Row gutter={16}>
@@ -155,11 +200,9 @@ export function AiPage() {
         </Col>
       </Row>
 
-      <Card title={t('ai.lastAnalysis')}>{status.last ? <AnalysisBlock item={status.last} /> : <Empty description={t('ai.noAnalysis')} image={Empty.PRESENTED_IMAGE_SIMPLE} />}</Card>
-
-      {status.history.length > 1 && (
+      {status.history.length > 0 && (
         <Card title={t('ai.history')}>
-          <List dataSource={status.history.slice(1)} renderItem={(item) => <List.Item key={item.id}><AnalysisBlock item={item} /></List.Item>} />
+          <List dataSource={status.history} renderItem={(item) => <List.Item key={item.id}><AnalysisBlock item={item} /></List.Item>} />
         </Card>
       )}
     </Space>

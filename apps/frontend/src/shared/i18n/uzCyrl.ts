@@ -334,4 +334,7 @@ export const uzCyrl: Dictionary = {
   'ai.notTraded': "Савдо қилинмади",
   'ai.toggleFailed': "Амални бажариб бўлмади",
   'error.AI_NOT_CONFIGURED': "Серверда ANTHROPIC_API_KEY берилмаган",
+  'ai.signalTitle': "AI сигнали",
+  'ai.analyzingShort': "ТАҲЛИЛ…",
+  'ai.waitingShort': "КУТИШ",
 };
