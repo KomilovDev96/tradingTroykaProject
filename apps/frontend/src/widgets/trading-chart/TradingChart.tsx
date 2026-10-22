@@ -10,6 +10,8 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import type { Candle } from '../../entities/strategy/model/types';
+import { useMarketStore } from '../../entities/market/model/store';
+import { formatTime } from '../../shared/lib/time';
 
 export interface ChartLevel {
   price: number | null;
@@ -29,6 +31,7 @@ interface TradingChartProps {
 
 export function TradingChart(props: TradingChartProps) {
   const screens = Grid.useBreakpoint();
+  const timezone = useMarketStore((s) => s.timezone);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -61,6 +64,20 @@ export function TradingChart(props: TradingChartProps) {
       seriesRef.current = null;
     };
   }, []);
+
+  // The chart's time axis and crosshair follow the app-wide display timezone (it would show UTC otherwise).
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const at = (time: number) => time * 1000;
+    chart.applyOptions({
+      localization: { timeFormatter: (time: number) => formatTime(at(time), timezone, 'DD.MM HH:mm') },
+      timeScale: {
+        tickMarkFormatter: (time: number, tickMarkType: number) =>
+          formatTime(at(time), timezone, tickMarkType <= 1 ? 'MMM YYYY' : tickMarkType === 2 ? 'DD.MM' : 'HH:mm'),
+      },
+    });
+  }, [timezone]);
 
   useEffect(() => {
     const series = seriesRef.current;

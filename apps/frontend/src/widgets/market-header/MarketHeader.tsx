@@ -1,14 +1,10 @@
 import { Badge, Card, Select, Space, Statistic, Typography } from 'antd';
 import { useMarketStore } from '../../entities/market/model/store';
-import { BROWSER_TIMEZONE } from '../../shared/lib/time';
+import { TIMEZONE_OPTIONS } from '../../shared/lib/time';
 import { useMeQuery } from '../../entities/session/api/session';
 import { useOpenTradesQuery } from '../../entities/trade/api/queries';
 import { LONG_TERM, SCALPING, type StrategyId } from '../../entities/strategy/model/types';
 import { useT, type TranslationKey } from '../../shared/i18n';
-
-const TIMEZONE_OPTIONS = Array.from(
-  new Set([BROWSER_TIMEZONE, 'UTC', 'Europe/Moscow', 'Europe/London', 'America/New_York', 'Asia/Dubai']),
-).map((tz) => ({ value: tz, label: tz }));
 
 const PHASE_COLOR: Record<string, string> = {
   WAITING: 'default',

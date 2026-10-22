@@ -12,6 +12,7 @@ export interface AiAnalysis {
   rejected: string | null;
   inputTokens: number;
   outputTokens: number;
+  costUsd: number | null;
 }
 
 export interface AiPosition {
@@ -37,7 +38,7 @@ export interface AiStatus {
   last: AiAnalysis | null;
   history: AiAnalysis[];
   lastError: string | null;
-  usage: { requests: number; inputTokens: number; outputTokens: number; since: number };
+  usage: { requests: number; inputTokens: number; outputTokens: number; since: number; costUsd: number; priceKnown: boolean; inputPerMTok: number | null; outputPerMTok: number | null };
   rateLimit: {
     requestsRemaining: number | null;
     requestsLimit: number | null;

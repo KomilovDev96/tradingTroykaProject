@@ -337,4 +337,13 @@ export const uzLatn: Dictionary = {
   'ai.signalTitle': "AI signali",
   'ai.analyzingShort': "TAHLIL…",
   'ai.waitingShort': "KUTISH",
+  'ai.cost': "Sarf, $",
+  'ai.costPerRequest': "Soʻrov",
+  'ai.costPerHour': "Pozitsiyasiz ishlaganda soatiga",
+  'ai.perMTok': "1 mln token uchun",
+  'ai.progressTp': "Maqsadgacha",
+  'ai.progressSl': "Stopga yaqinlashish",
+  'ai.progressLocked': "Foyda himoyalangan",
+  'ai.toStop': "stopgacha",
+  'ai.points': "p.",
 };

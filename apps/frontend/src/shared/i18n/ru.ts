@@ -335,6 +335,15 @@ export const ru = {
   'ai.signalTitle': "Сигнал ИИ",
   'ai.analyzingShort': "АНАЛИЗ…",
   'ai.waitingShort': "ОЖИДАНИЕ",
+  'ai.cost': "Расход, $",
+  'ai.costPerRequest': "Запрос",
+  'ai.costPerHour': "В час при работе без позиции",
+  'ai.perMTok': "за 1 млн токенов",
+  'ai.progressTp': "До цели",
+  'ai.progressSl': "Падение к стопу",
+  'ai.progressLocked': "Прибыль защищена",
+  'ai.toStop': "до стопа",
+  'ai.points': "п.",
 } as const;
 
 export type TranslationKey = keyof typeof ru;

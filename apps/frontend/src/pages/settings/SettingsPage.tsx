@@ -1,14 +1,10 @@
 import { Card, Descriptions, Grid, Select, Space } from 'antd';
 import { useMarketStore } from '../../entities/market/model/store';
 import { BACKEND_HTTP_URL, BACKEND_WS_URL } from '../../shared/api/config';
-import { BROWSER_TIMEZONE } from '../../shared/lib/time';
+import { TIMEZONE_OPTIONS } from '../../shared/lib/time';
 import { useMeQuery } from '../../entities/session/api/session';
 import { ChangePasswordButton } from '../../features/change-password/ui/ChangePasswordButton';
 import { useT, type TranslationKey } from '../../shared/i18n';
-
-const TIMEZONE_OPTIONS = Array.from(
-  new Set([BROWSER_TIMEZONE, 'UTC', 'Europe/Moscow', 'Europe/London', 'America/New_York', 'Asia/Dubai']),
-).map((tz) => ({ value: tz, label: tz }));
 
 export function SettingsPage() {
   const instrument = useMarketStore((s) => s.instrument);

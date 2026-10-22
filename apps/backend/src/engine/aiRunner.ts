@@ -1,5 +1,5 @@
 import type { Candle } from '@troyka/strategy-engine';
-import { askClaude, type ClaudeUsage, type RateLimitInfo } from '../ai/claudeClient';
+import { askClaude, costUsd, modelPrice, type ClaudeUsage, type RateLimitInfo } from '../ai/claudeClient';
 import { atr, ema, round, rsi } from '../ai/indicators';
 import { listActiveSuperAdminIds } from '../db/accountRepository';
 import { createTradingSession } from '../db/sessionRepository';
@@ -48,6 +48,7 @@ export interface AiAnalysis {
   rejected: string | null;
   inputTokens: number;
   outputTokens: number;
+  costUsd: number | null;
 }
 
 export interface AiPosition {
@@ -76,7 +77,7 @@ export interface AiStatus {
   last: AiAnalysis | null;
   history: AiAnalysis[];
   lastError: string | null;
-  usage: { requests: number; inputTokens: number; outputTokens: number; since: number };
+  usage: { requests: number; inputTokens: number; outputTokens: number; since: number; costUsd: number; priceKnown: boolean; inputPerMTok: number | null; outputPerMTok: number | null };
   rateLimit: RateLimitInfo | null;
 }
 
@@ -117,7 +118,7 @@ export class AiRunner {
   private history: AiAnalysis[] = [];
   private analysisCounter = 0;
   private lastError: string | null = null;
-  private usage = { requests: 0, inputTokens: 0, outputTokens: 0, since: Date.now() };
+  private usage = { requests: 0, inputTokens: 0, outputTokens: 0, since: Date.now(), costUsd: 0 };
   private rateLimit: RateLimitInfo | null = null;
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -192,7 +193,7 @@ export class AiRunner {
       last: this.history[0] ?? null,
       history: this.history,
       lastError: this.lastError,
-      usage: this.usage,
+      usage: { ...this.usage, priceKnown: modelPrice() !== null, inputPerMTok: modelPrice()?.inputPerMTok ?? null, outputPerMTok: modelPrice()?.outputPerMTok ?? null },
       rateLimit: this.rateLimit,
     };
   }
@@ -316,7 +317,7 @@ export class AiRunner {
     const parsed = parseReply(reply.text);
     const decision = parsed?.decision === 'BUY' || parsed?.decision === 'SELL' ? parsed.decision : 'SKIP';
     const analysis = typeof parsed?.analysis === 'string' ? parsed.analysis.slice(0, 1200) : parsed ? '' : 'Ответ модели не удалось разобрать';
-    const base = { analysis, inputTokens: reply.usage.inputTokens, outputTokens: reply.usage.outputTokens };
+    const base = { analysis, inputTokens: reply.usage.inputTokens, outputTokens: reply.usage.outputTokens, costUsd: costUsd(reply.usage) };
     if (!parsed || decision === 'SKIP') {
       this.record({ ...base, decision: 'SKIP', entry: null, stopLoss: null, takeProfit: null, rejected: parsed ? null : 'Ответ модели не удалось разобрать' });
       return;
@@ -347,6 +348,7 @@ export class AiRunner {
     this.usage.requests += 1;
     this.usage.inputTokens += usage.inputTokens;
     this.usage.outputTokens += usage.outputTokens;
+    this.usage.costUsd += costUsd(usage) ?? 0;
     this.rateLimit = rateLimit;
   }
 

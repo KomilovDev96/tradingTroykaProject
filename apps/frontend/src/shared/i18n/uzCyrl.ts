@@ -337,4 +337,13 @@ export const uzCyrl: Dictionary = {
   'ai.signalTitle': "AI сигнали",
   'ai.analyzingShort': "ТАҲЛИЛ…",
   'ai.waitingShort': "КУТИШ",
+  'ai.cost': "Сарф, $",
+  'ai.costPerRequest': "Сўров",
+  'ai.costPerHour': "Позициясиз ишлаганда соатига",
+  'ai.perMTok': "1 млн токен учун",
+  'ai.progressTp': "Мақсадгача",
+  'ai.progressSl': "Стопга яқинлашиш",
+  'ai.progressLocked': "Фойда ҳимояланган",
+  'ai.toStop': "стопгача",
+  'ai.points': "п.",
 };

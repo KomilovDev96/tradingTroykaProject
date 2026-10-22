@@ -51,3 +51,25 @@ export async function askClaude(system: string, user: string, maxTokens = 700): 
     },
   };
 }
+
+/** USD per million tokens (input, output) — Anthropic list prices; override with AI_PRICE_IN / AI_PRICE_OUT. */
+const PRICES: Record<string, [number, number]> = {
+  'claude-haiku-5-5': [0.1, 0.5],
+  'claude-sonnet-5-5': [2, 10],
+  'claude-sonnet-5': [2, 10],
+  'claude-opus-5-5': [4, 20],
+  'claude-opus-5': [5, 25],
+  'claude-fable-5-1': [10, 50],
+};
+
+export function modelPrice(): { inputPerMTok: number; outputPerMTok: number } | null {
+  const override = [Number(process.env.AI_PRICE_IN), Number(process.env.AI_PRICE_OUT)];
+  if (override.every((n) => Number.isFinite(n) && n > 0)) return { inputPerMTok: override[0], outputPerMTok: override[1] };
+  const known = PRICES[env.aiModel];
+  return known ? { inputPerMTok: known[0], outputPerMTok: known[1] } : null;
+}
+
+export function costUsd(usage: ClaudeUsage): number | null {
+  const price = modelPrice();
+  return price ? (usage.inputTokens * price.inputPerMTok + usage.outputTokens * price.outputPerMTok) / 1_000_000 : null;
+}

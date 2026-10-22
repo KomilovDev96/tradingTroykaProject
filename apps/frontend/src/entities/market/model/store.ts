@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Candle, EngineOutput, LongTermOutput } from '../../strategy/model/types';
-import { BROWSER_TIMEZONE } from '../../../shared/lib/time';
+import { readStoredTimezone, storeTimezone } from '../../../shared/lib/time';
 
 export type ConnectionStatus = 'connecting' | 'open' | 'closed';
 
@@ -34,10 +34,13 @@ export const useMarketStore = create<MarketState>((set) => ({
   output: null,
   longTermCandles: [],
   longTermOutput: null,
-  timezone: BROWSER_TIMEZONE,
+  timezone: readStoredTimezone(),
 
   setConnectionStatus: (status) => set({ connectionStatus: status }),
-  setTimezone: (tz) => set({ timezone: tz }),
+  setTimezone: (tz) => {
+    storeTimezone(tz);
+    set({ timezone: tz });
+  },
   applySnapshot: ({ instrument, candles, output, longTerm }) =>
     set({ instrument, candles, output, longTermCandles: longTerm?.candles ?? [], longTermOutput: longTerm?.output ?? null }),
   applyUpdate: ({ output, candles }) => set({ output, candles }),

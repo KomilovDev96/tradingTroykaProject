@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useMarketStore } from '../../entities/market/model/store';
 import { TradingChart, type ChartLevel } from '../../widgets/trading-chart/TradingChart';
 import { MarketHeader } from '../../widgets/market-header/MarketHeader';
-import { useAiClosePosition, useAiToggle, useAiStatus, type AiAnalysis } from '../../entities/ai/api/ai';
+import { useAiClosePosition, useAiToggle, useAiStatus, type AiAnalysis, type AiStatus } from '../../entities/ai/api/ai';
+import { formatTime } from '../../shared/lib/time';
 import { ApiError } from '../../shared/api/httpClient';
 import { translateError, useT } from '../../shared/i18n';
 
@@ -25,13 +26,14 @@ function Limit({ label, remaining, limit }: { label: string; remaining: number |
 
 function AnalysisBlock({ item }: { item: AiAnalysis }) {
   const t = useT();
+  const timezone = useMarketStore((s) => s.timezone);
   return (
     <Space orientation="vertical" size={8} style={{ width: '100%' }}>
       <Space wrap>
         <Tag color={DECISION_COLOR[item.decision]}>{item.decision === 'SKIP' ? t('ai.skip') : item.decision}</Tag>
-        <Typography.Text type="secondary">{new Date(item.time).toLocaleTimeString()}</Typography.Text>
+        <Typography.Text type="secondary">{formatTime(item.time, timezone)}</Typography.Text>
         <Typography.Text type="secondary">
-          {fmtInt(item.inputTokens)} + {fmtInt(item.outputTokens)} {t('ai.tokens')}
+          {fmtInt(item.inputTokens)} + {fmtInt(item.outputTokens)} {t('ai.tokens')}{item.costUsd !== null ? ` · $${item.costUsd.toFixed(4)}` : ''}
         </Typography.Text>
       </Space>
       {item.analysis && <Typography.Paragraph style={{ marginBottom: 0 }}>{item.analysis}</Typography.Paragraph>}
@@ -43,6 +45,35 @@ function AnalysisBlock({ item }: { item: AiAnalysis }) {
         </Space>
       )}
       {item.rejected && <Alert type="warning" showIcon title={`${t('ai.notTraded')}: ${item.rejected}`} />}
+    </Space>
+  );
+}
+
+/** Where the price is between Stop Loss and target, and how far it is to each. */
+function TradeProgress({ pos, price }: { pos: NonNullable<AiStatus['position']>; price: number | null }) {
+  const t = useT();
+  if (price === null) return null;
+  const sign = pos.direction === 'BUY' ? 1 : -1;
+  const toTp = sign * (pos.takeProfit - price);
+  const toSl = sign * (price - pos.stopLoss);
+  const reward = sign * (pos.takeProfit - pos.entryPrice);
+  const risk = sign * (pos.entryPrice - pos.initialStopLoss);
+  const progress = Math.max(0, Math.min(100, (sign * (price - pos.entryPrice) / reward) * 100));
+  // The stop may sit above entry after breakeven: then the remaining risk is a locked profit, not a loss.
+  const stopLocked = sign * (pos.stopLoss - pos.entryPrice) >= 0;
+  const lossPercent = stopLocked ? 0 : Math.max(0, Math.min(100, (sign * (pos.entryPrice - price) / risk) * 100));
+  return (
+    <Space orientation="vertical" size={6} style={{ width: '100%' }}>
+      <div>
+        <Typography.Text type="secondary">{t('ai.progressTp')}: {progress.toFixed(0)}% · {Math.max(0, toTp).toFixed(2)} {t('ai.points')}</Typography.Text>
+        <Progress percent={Math.round(progress)} size="small" strokeColor="#3fb950" showInfo={false} />
+      </div>
+      <div>
+        <Typography.Text type="secondary">
+          {stopLocked ? t('ai.progressLocked') : t('ai.progressSl')}: {stopLocked ? `+${sign * (pos.stopLoss - pos.entryPrice) >= 0 ? (sign * (pos.stopLoss - pos.entryPrice)).toFixed(2) : '0.00'} ${t('ai.points')}` : `${lossPercent.toFixed(0)}%`} · {t('ai.toStop')} {Math.max(0, toSl).toFixed(2)} {t('ai.points')}
+        </Typography.Text>
+        <Progress percent={stopLocked ? 100 : Math.round(lossPercent)} size="small" strokeColor={stopLocked ? '#3fb950' : '#f85149'} showInfo={false} />
+      </div>
     </Space>
   );
 }
@@ -66,6 +97,7 @@ export function AiPage() {
   const { data: status } = useAiStatus();
   const toggle = useAiToggle();
   const candles = useMarketStore((s) => s.candles);
+  const timezone = useMarketStore((s) => s.timezone);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -145,6 +177,7 @@ export function AiPage() {
               <Tag color={pos ? (pos.direction === 'BUY' ? 'success' : 'error') : status.enabled ? 'processing' : 'default'} style={{ fontSize: 16, padding: '4px 12px' }}>
                 {pos ? pos.direction : status.enabled ? (status.analyzing ? t('ai.analyzingShort') : t('ai.waitingShort')) : t('ai.off')}
               </Tag>
+              {pos && <TradeProgress pos={pos} price={status.price} />}
               {pos ? (
                 <Descriptions column={1} size="small">
                   <Descriptions.Item label={t('ai.entry')}>{fmt(pos.entryPrice)}</Descriptions.Item>
@@ -168,7 +201,7 @@ export function AiPage() {
               )}
               {status.last?.analysis && (
                 <div>
-                  <Typography.Text type="secondary">{t('ai.lastAnalysis')} · {new Date(status.last.time).toLocaleTimeString()}</Typography.Text>
+                  <Typography.Text type="secondary">{t('ai.lastAnalysis')} · {formatTime(status.last.time, timezone)}</Typography.Text>
                   <Typography.Paragraph style={{ marginTop: 4, marginBottom: 0 }}>{status.last.analysis}</Typography.Paragraph>
                 </div>
               )}
@@ -183,9 +216,12 @@ export function AiPage() {
           <Card title={t('ai.usage')}>
             <Space orientation="vertical" size={12} style={{ width: '100%' }}>
               <Row gutter={16}>
-                <Col span={8}><Statistic title={t('ai.requests')} value={status.usage.requests} /></Col>
-                <Col span={8}><Statistic title={t('ai.tokensIn')} value={status.usage.inputTokens} /></Col>
-                <Col span={8}><Statistic title={t('ai.tokensOut')} value={status.usage.outputTokens} /></Col>
+                <Col xs={12} md={6}><Statistic title={t('ai.requests')} value={status.usage.requests} /></Col>
+                <Col xs={12} md={6}><Statistic title={t('ai.tokensIn')} value={status.usage.inputTokens} /></Col>
+                <Col xs={12} md={6}><Statistic title={t('ai.tokensOut')} value={status.usage.outputTokens} /></Col>
+                <Col xs={12} md={6}>
+                  <Statistic title={t('ai.cost')} value={status.usage.priceKnown ? status.usage.costUsd : '—'} prefix={status.usage.priceKnown ? '$' : undefined} precision={4} />
+                </Col>
               </Row>
               {rate && (
                 <>
@@ -193,6 +229,11 @@ export function AiPage() {
                   <Limit label={t('ai.limitIn')} remaining={rate.inputTokensRemaining} limit={rate.inputTokensLimit} />
                   <Limit label={t('ai.limitOut')} remaining={rate.outputTokensRemaining} limit={rate.outputTokensLimit} />
                 </>
+              )}
+              {status.usage.priceKnown && status.usage.requests > 0 && (
+                <Typography.Text type="secondary">
+                  {t('ai.costPerRequest')}: ${(status.usage.costUsd / status.usage.requests).toFixed(4)} · {t('ai.costPerHour')}: ~${((status.usage.costUsd / status.usage.requests) * (3600 / status.intervalSec)).toFixed(2)} · ${status.usage.inputPerMTok} / ${status.usage.outputPerMTok} {t('ai.perMTok')}
+                </Typography.Text>
               )}
               <Typography.Text type="secondary">{t('ai.balanceNote')}</Typography.Text>
             </Space>
