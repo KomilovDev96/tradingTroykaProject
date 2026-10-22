@@ -347,4 +347,5 @@ export const uzCyrl: Dictionary = {
   'ai.toStop': "стопгача",
   'ai.points': "п.",
   'strategyName.ai': "AI-стратегия",
+  'ai.lastTradeClosed': "Охирги савдо ёпилди",
 };

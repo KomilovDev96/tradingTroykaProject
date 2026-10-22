@@ -347,4 +347,5 @@ export const uzLatn: Dictionary = {
   'ai.toStop': "stopgacha",
   'ai.points': "p.",
   'strategyName.ai': "AI-strategiya",
+  'ai.lastTradeClosed': "Oxirgi savdo yopildi",
 };

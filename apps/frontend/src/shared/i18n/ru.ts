@@ -345,6 +345,7 @@ export const ru = {
   'ai.toStop': "до стопа",
   'ai.points': "п.",
   'strategyName.ai': "ИИ-стратегия",
+  'ai.lastTradeClosed': "Последняя сделка закрыта",
 } as const;
 
 export type TranslationKey = keyof typeof ru;

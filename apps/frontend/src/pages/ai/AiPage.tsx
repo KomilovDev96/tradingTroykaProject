@@ -4,6 +4,7 @@ import { useMarketStore } from '../../entities/market/model/store';
 import { TradingChart, type ChartLevel } from '../../widgets/trading-chart/TradingChart';
 import { OpenTrades } from '../../widgets/open-trades/OpenTrades';
 import { AI } from '../../entities/strategy/model/types';
+import { useTradesQuery } from '../../entities/trade/api/queries';
 import { MarketHeader } from '../../widgets/market-header/MarketHeader';
 import { useAiClosePosition, useAiToggle, useAiStatus, type AiAnalysis, type AiStatus } from '../../entities/ai/api/ai';
 import { formatTime } from '../../shared/lib/time';
@@ -99,6 +100,7 @@ export function AiPage() {
   const { data: status } = useAiStatus();
   const toggle = useAiToggle();
   const candles = useMarketStore((s) => s.candles);
+  const lastTrade = useTradesQuery({ strategy: AI }).data?.find((tr) => tr.status !== 'OPEN') ?? null;
   const timezone = useMarketStore((s) => s.timezone);
   const [now, setNow] = useState(() => Date.now());
 
@@ -128,8 +130,7 @@ export function AiPage() {
   const rate = status.rateLimit;
   const pos = status.position;
 
-  // Live position when there is one; otherwise the model's latest proposal (dashed) so the idea is visible on the chart.
-  const idea = !pos && status.last && status.last.decision !== 'SKIP' && !status.last.rejected ? status.last : null;
+  // Levels exist only while a position is open: the last analysis stays the same after it closes, so it must not be redrawn.
   const levels: ChartLevel[] = pos
     ? [
         { price: pos.entryPrice, color: '#3fb950', title: t('chart.entry'), lineStyle: 0 },
@@ -137,11 +138,7 @@ export function AiPage() {
         { price: pos.stage >= 1 ? null : pos.initialStopLoss === pos.stopLoss ? null : pos.initialStopLoss, color: '#e0a800', title: t('ai.initialStop') },
         { price: pos.takeProfit, color: '#00e676', title: 'TP', lineStyle: 0 },
       ]
-    : [
-        { price: idea?.entry ?? null, color: '#3fb950', title: t('chart.entry') },
-        { price: idea?.stopLoss ?? null, color: '#f85149', title: 'STOP LOSS' },
-        { price: idea?.takeProfit ?? null, color: '#00e676', title: 'TP' },
-      ];
+    : [];
 
   return (
     <Space orientation="vertical" size="large" className="page">
@@ -192,14 +189,15 @@ export function AiPage() {
                     <Typography.Text type={pos.pnlPoints >= 0 ? 'success' : 'danger'}>{pos.pnlPoints >= 0 ? '+' : ''}{pos.pnlPoints.toFixed(2)}</Typography.Text>
                   </Descriptions.Item>
                 </Descriptions>
-              ) : idea ? (
-                <Descriptions column={1} size="small">
-                  <Descriptions.Item label={t('ai.entry')}>{fmt(idea.entry)}</Descriptions.Item>
-                  <Descriptions.Item label="Stop Loss">{fmt(idea.stopLoss)}</Descriptions.Item>
-                  <Descriptions.Item label={t('ai.takeProfit')}>{fmt(idea.takeProfit)}</Descriptions.Item>
-                </Descriptions>
               ) : (
                 <Typography.Text type="secondary">{t('ai.noPosition')}</Typography.Text>
+              )}
+              {!pos && lastTrade && lastTrade.pnlPoints !== null && (
+                <Alert
+                  type={lastTrade.pnlPoints > 0 ? 'success' : lastTrade.pnlPoints < 0 ? 'error' : 'info'}
+                  showIcon
+                  title={`${t('ai.lastTradeClosed')}: ${lastTrade.direction} ${lastTrade.entryPrice.toFixed(2)} → ${lastTrade.exitPrice?.toFixed(2) ?? '—'} · ${lastTrade.pnlPoints >= 0 ? '+' : ''}${lastTrade.pnlPoints.toFixed(2)} ${t('ai.points')}`}
+                />
               )}
               {status.last?.analysis && (
                 <div>
