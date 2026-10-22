@@ -2,6 +2,8 @@ import { Alert, App, Button, Card, Col, Descriptions, List, Progress, Row, Space
 import { useEffect, useState } from 'react';
 import { useMarketStore } from '../../entities/market/model/store';
 import { TradingChart, type ChartLevel } from '../../widgets/trading-chart/TradingChart';
+import { OpenTrades } from '../../widgets/open-trades/OpenTrades';
+import { AI } from '../../entities/strategy/model/types';
 import { MarketHeader } from '../../widgets/market-header/MarketHeader';
 import { useAiClosePosition, useAiToggle, useAiStatus, type AiAnalysis, type AiStatus } from '../../entities/ai/api/ai';
 import { formatTime } from '../../shared/lib/time';
@@ -240,6 +242,8 @@ export function AiPage() {
           </Card>
         </Col>
       </Row>
+
+      <OpenTrades strategy={AI} />
 
       {status.history.length > 0 && (
         <Card title={t('ai.history')}>

@@ -6,7 +6,8 @@ import { env } from './env';
 import type { EngineRunner } from './engine/runner';
 import type { LongTermRunner } from './engine/longTermRunner';
 import type { AiRunner } from './engine/aiRunner';
-import { LONG_TERM_STRATEGY, parseStrategy } from './strategies';
+import { listAiAnalyses } from './db/aiRepository';
+import { AI_STRATEGY, LONG_TERM_STRATEGY, parseStrategy } from './strategies';
 import { getAllClosedTrades, getClosedTradesInRange, getOpenTrades, listTrades, type TradeFilters } from './db/tradeRepository';
 import { computeByDayOfWeek, computeByDirection, computePnlCurve, computeStopLossStats, computeSummary } from './stats/computeStats';
 import { Hub } from './ws/hub';
@@ -181,13 +182,13 @@ export function createApp(runner: EngineRunner, longTermRunner: LongTermRunner, 
 
   /** «Закрыть позицию»: closes only the caller's own position — of the scalping or, with `strategy`, the long-term Troika. */
   app.post('/api/close-position', route(async (req, res) => {
-    const target = req.body?.strategy === LONG_TERM_STRATEGY ? longTermRunner : runner;
-    const latest = target.getLatest();
-    if (!latest) {
+    const target = req.body?.strategy === AI_STRATEGY ? aiRunner : req.body?.strategy === LONG_TERM_STRATEGY ? longTermRunner : runner;
+    const price = target === aiRunner ? aiRunner.getStatus().price : ((target as EngineRunner | LongTermRunner).getLatest()?.currentPrice ?? null);
+    if (price === null) {
       res.status(409).json({ error: 'NO_DATA' });
       return;
     }
-    const closed = await target.closePositionFor(accountOf(res).id, latest.currentPrice, Date.now());
+    const closed = await target.closePositionFor(accountOf(res).id, price, Date.now());
     if (!closed) {
       res.status(409).json({ error: 'NO_POSITION' });
       return;
@@ -205,6 +206,12 @@ export function createApp(runner: EngineRunner, longTermRunner: LongTermRunner, 
   };
   const aiStatus = (res: Response) => res.json(aiRunner.getStatus());
   app.get('/api/ai/status', requireSuperAdmin, (_req, res) => aiStatus(res));
+  /** Every stored answer of the AI (BUY/SELL/SKIP, rejected ones too), newest first; `before` = ms epoch for paging. */
+  app.get('/api/ai/analyses', requireSuperAdmin, route(async (req, res) => {
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+    const before = req.query.before ? Number(req.query.before) : undefined;
+    res.json(await listAiAnalyses(limit, before));
+  }));
   app.post('/api/ai/enable', requireSuperAdmin, (_req, res) => {
     try {
       aiRunner.setEnabled(true);

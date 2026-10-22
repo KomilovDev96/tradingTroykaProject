@@ -346,4 +346,5 @@ export const uzLatn: Dictionary = {
   'ai.progressLocked': "Foyda himoyalangan",
   'ai.toStop': "stopgacha",
   'ai.points': "p.",
+  'strategyName.ai': "AI-strategiya",
 };

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, Table, Tag } from 'antd';
 import { useOpenTradesQuery } from '../../entities/trade/api/queries';
 import type { TradeDTO } from '../../entities/trade/model/types';
-import { LONG_TERM, type StrategyId } from '../../entities/strategy/model/types';
+import { LONG_TERM, strategyNameKey, type StrategyId } from '../../entities/strategy/model/types';
 import { useMarketStore } from '../../entities/market/model/store';
 import { ClosePositionButton } from '../../features/close-position/ui/ClosePositionButton';
 import { useT } from '../../shared/i18n';
@@ -37,7 +37,7 @@ export function OpenTrades({ strategy }: { strategy?: StrategyId }) {
         locale={{ emptyText: t('trades.noOpen') }}
         columns={[
           { title: t('trades.colSymbol'), dataIndex: 'symbol' },
-          ...(strategy ? [] : [{ title: t('trades.colStrategy'), dataIndex: 'strategy', render: (s: string) => t(s === LONG_TERM ? 'strategyName.longTerm' : 'strategyName.scalping') }]),
+          ...(strategy ? [] : [{ title: t('trades.colStrategy'), dataIndex: 'strategy', render: (s: string) => t(strategyNameKey(s)) }]),
           { title: t('trades.colDirection'), dataIndex: 'direction', render: (d: string) => <Tag color={d === 'BUY' ? 'success' : 'error'}>{d}</Tag> },
           { title: t('trades.colEntry'), dataIndex: 'entryPrice', render: (v: number) => v.toFixed(2) },
           { title: 'Stop Loss', dataIndex: 'stopLoss', render: (v: number) => v.toFixed(2) },

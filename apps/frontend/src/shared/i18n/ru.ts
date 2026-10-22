@@ -344,6 +344,7 @@ export const ru = {
   'ai.progressLocked': "Прибыль защищена",
   'ai.toStop': "до стопа",
   'ai.points': "п.",
+  'strategyName.ai': "ИИ-стратегия",
 } as const;
 
 export type TranslationKey = keyof typeof ru;

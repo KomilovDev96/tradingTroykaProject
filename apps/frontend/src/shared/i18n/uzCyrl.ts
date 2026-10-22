@@ -346,4 +346,5 @@ export const uzCyrl: Dictionary = {
   'ai.progressLocked': "Фойда ҳимояланган",
   'ai.toStop': "стопгача",
   'ai.points': "п.",
+  'strategyName.ai': "AI-стратегия",
 };

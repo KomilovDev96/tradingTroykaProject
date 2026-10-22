@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Button, Card, DatePicker, Select, Space, Table } from 'antd';
 import { useTradesQuery } from '../../entities/trade/api/queries';
 import type { TradeDTO, TradeFilters } from '../../entities/trade/model/types';
-import { LONG_TERM, SCALPING } from '../../entities/strategy/model/types';
+import { AI, LONG_TERM, SCALPING } from '../../entities/strategy/model/types';
 import { exportTradesCsv } from '../../features/export-trades/model/useExportTrades';
+import { useMeQuery } from '../../entities/session/api/session';
 import { useT } from '../../shared/i18n';
 import { useTradeHistoryColumns } from './useTradeHistoryColumns';
 
@@ -11,6 +12,7 @@ export function TradeHistoryTable() {
   const [filters, setFilters] = useState<TradeFilters>({});
   const t = useT();
   const columns = useTradeHistoryColumns();
+  const isSuperAdmin = useMeQuery().data?.role === 'SUPERADMIN';
 
   const { data: trades = [], isLoading } = useTradesQuery(filters);
 
@@ -41,6 +43,7 @@ export function TradeHistoryTable() {
           options={[
             { value: SCALPING, label: t('strategyName.scalping') },
             { value: LONG_TERM, label: t('strategyName.longTerm') },
+            ...(isSuperAdmin ? [{ value: AI, label: t('strategyName.ai') }] : []),
           ]}
           onChange={(v) => setFilters((f) => ({ ...f, strategy: v }))}
         />

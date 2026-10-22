@@ -57,6 +57,8 @@ async function main() {
     () => hub?.broadcast({ type: 'trades-changed' }),
   );
 
+  await aiRunner.loadFromDb();
+
   // Section 46: restore an open position across backend restarts from Postgres, not memory.
   // Only positions someone actually holds (legacy rows without an account are closed by migration).
   const [openTrade] = (await getOpenTrades(env.instrument, undefined, SCALPING_STRATEGY)).filter((t) => t.accountId !== null);

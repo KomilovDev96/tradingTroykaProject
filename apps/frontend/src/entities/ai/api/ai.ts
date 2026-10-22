@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getJson, postJson } from '../../../shared/api/httpClient';
 
 export interface AiAnalysis {
-  id: number;
+  id: string;
+  signalId: string | null;
   time: number;
   decision: 'BUY' | 'SELL' | 'SKIP';
   analysis: string;

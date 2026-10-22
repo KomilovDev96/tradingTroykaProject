@@ -2,6 +2,7 @@ import type { Candle } from '@troyka/strategy-engine';
 import { askClaude, costUsd, modelPrice, type ClaudeUsage, type RateLimitInfo } from '../ai/claudeClient';
 import { atr, ema, round, rsi } from '../ai/indicators';
 import { listActiveSuperAdminIds } from '../db/accountRepository';
+import { aiUsageTotals, listAiAnalyses, saveAiAnalysis, type AiAnalysisRecord } from '../db/aiRepository';
 import { createTradingSession } from '../db/sessionRepository';
 import {
   buildSignalId,
@@ -36,20 +37,7 @@ Reply with ONE JSON object and nothing else:
 Rules: for BUY stopLoss < entry < takeProfit; for SELL takeProfit < entry < stopLoss. Stop distance ${MIN_STOP_POINTS}-${MAX_STOP_POINTS} points,
 reward/risk at least ${MIN_REWARD_RISK}. Put the stop behind a real level, not an arbitrary number. entry is the current price (or very close). For SKIP omit entry/stopLoss/takeProfit.`;
 
-export interface AiAnalysis {
-  id: number;
-  time: number;
-  decision: 'BUY' | 'SELL' | 'SKIP';
-  analysis: string;
-  entry: number | null;
-  stopLoss: number | null;
-  takeProfit: number | null;
-  /** Why a BUY/SELL answer was not traded (failed a guard rail), or an API error. */
-  rejected: string | null;
-  inputTokens: number;
-  outputTokens: number;
-  costUsd: number | null;
-}
+export type AiAnalysis = AiAnalysisRecord;
 
 export interface AiPosition {
   direction: 'BUY' | 'SELL';
@@ -155,6 +143,12 @@ export class AiRunner {
       bestPrice: trade.stage >= 1 ? trade.stopLoss + sign * risk : trade.entryPrice,
       openedAt: trade.confirmationTime,
     };
+  }
+
+  /** Restores the history and usage counters from Postgres, so a restart doesn't reset them. */
+  async loadFromDb() {
+    this.history = await listAiAnalyses(HISTORY_LIMIT);
+    this.usage = await aiUsageTotals();
   }
 
   isEnabled() {
@@ -295,8 +289,16 @@ export class AiRunner {
     ].join('\n\n');
   }
 
-  private record(entry: Omit<AiAnalysis, 'id' | 'time'>) {
-    this.history = [{ id: ++this.analysisCounter, time: Date.now(), ...entry }, ...this.history].slice(0, HISTORY_LIMIT);
+  /** Keeps the answer in memory right away and in Postgres (a failed write is logged, never blocks trading). */
+  private async record(entry: Omit<AiAnalysis, 'id' | 'time'>) {
+    let saved: AiAnalysis;
+    try {
+      saved = await saveAiAnalysis({ ...entry, symbol: this.config.symbol, model: env.aiModel, price: this.price?.value ?? null });
+    } catch (err) {
+      console.error('[ai] Failed to save the analysis:', err);
+      saved = { ...entry, id: `mem-${Date.now()}`, time: Date.now() };
+    }
+    this.history = [saved, ...this.history].slice(0, HISTORY_LIMIT);
   }
 
   private async analyze() {
@@ -317,9 +319,9 @@ export class AiRunner {
     const parsed = parseReply(reply.text);
     const decision = parsed?.decision === 'BUY' || parsed?.decision === 'SELL' ? parsed.decision : 'SKIP';
     const analysis = typeof parsed?.analysis === 'string' ? parsed.analysis.slice(0, 1200) : parsed ? '' : 'Ответ модели не удалось разобрать';
-    const base = { analysis, inputTokens: reply.usage.inputTokens, outputTokens: reply.usage.outputTokens, costUsd: costUsd(reply.usage) };
+    const base = { signalId: null as string | null, analysis, inputTokens: reply.usage.inputTokens, outputTokens: reply.usage.outputTokens, costUsd: costUsd(reply.usage) };
     if (!parsed || decision === 'SKIP') {
-      this.record({ ...base, decision: 'SKIP', entry: null, stopLoss: null, takeProfit: null, rejected: parsed ? null : 'Ответ модели не удалось разобрать' });
+      await this.record({ ...base, decision: 'SKIP', entry: null, stopLoss: null, takeProfit: null, rejected: parsed ? null : 'Ответ модели не удалось разобрать' });
       return;
     }
 
@@ -328,20 +330,20 @@ export class AiRunner {
     const takeProfit = asNumber(parsed.takeProfit);
     const fields = { entry, stopLoss, takeProfit };
     const reject = (reason: string) => this.record({ ...base, decision, ...fields, rejected: reason });
-    if (entry === null || stopLoss === null || takeProfit === null) return reject('В ответе нет входа, стопа или цели');
+    if (entry === null || stopLoss === null || takeProfit === null) return await reject('В ответе нет входа, стопа или цели');
 
     // The position is opened at the live price, so every check is against it, not against the model's `entry`.
     const live = this.price?.value ?? snapshot.value;
     const sign = decision === 'BUY' ? 1 : -1;
     const risk = sign * (live - stopLoss);
     const reward = sign * (takeProfit - live);
-    if (Math.abs(entry - live) > MAX_ENTRY_DRIFT_POINTS) return reject(`Цена ушла от входа (${entry} → ${live.toFixed(2)})`);
-    if (risk <= 0 || reward <= 0) return reject('Стоп или цель с неверной стороны от цены');
-    if (risk < MIN_STOP_POINTS || risk > MAX_STOP_POINTS) return reject(`Стоп ${risk.toFixed(2)} п. вне допустимых ${MIN_STOP_POINTS}–${MAX_STOP_POINTS}`);
-    if (reward / risk < MIN_REWARD_RISK) return reject(`Прибыль/риск ${(reward / risk).toFixed(2)} ниже ${MIN_REWARD_RISK}`);
+    if (Math.abs(entry - live) > MAX_ENTRY_DRIFT_POINTS) return await reject(`Цена ушла от входа (${entry} → ${live.toFixed(2)})`);
+    if (risk <= 0 || reward <= 0) return await reject('Стоп или цель с неверной стороны от цены');
+    if (risk < MIN_STOP_POINTS || risk > MAX_STOP_POINTS) return await reject(`Стоп ${risk.toFixed(2)} п. вне допустимых ${MIN_STOP_POINTS}–${MAX_STOP_POINTS}`);
+    if (reward / risk < MIN_REWARD_RISK) return await reject(`Прибыль/риск ${(reward / risk).toFixed(2)} ниже ${MIN_REWARD_RISK}`);
 
     const opened = await this.enqueue(() => this.openPosition(decision, live, stopLoss, takeProfit));
-    this.record({ ...base, decision, ...fields, rejected: opened ? null : 'Позиция не открыта (нет активных супер-админов)' });
+    await this.record({ ...base, signalId: opened, decision, ...fields, rejected: opened ? null : 'Позиция не открыта (нет активных супер-админов)' });
   }
 
   private addUsage(usage: ClaudeUsage, rateLimit: RateLimitInfo) {
@@ -352,10 +354,10 @@ export class AiRunner {
     this.rateLimit = rateLimit;
   }
 
-  private async openPosition(direction: 'BUY' | 'SELL', entry: number, stopLoss: number, takeProfit: number): Promise<boolean> {
-    if (this.position) return false;
+  private async openPosition(direction: 'BUY' | 'SELL', entry: number, stopLoss: number, takeProfit: number): Promise<string | null> {
+    if (this.position) return null;
     const accountIds = await listActiveSuperAdminIds();
-    if (accountIds.length === 0) return false;
+    if (accountIds.length === 0) return null;
 
     const now = Date.now();
     const risk = Math.abs(entry - stopLoss);
@@ -384,10 +386,10 @@ export class AiRunner {
       },
       accountIds,
     );
-    if (created === 0) return false;
+    if (created === 0) return null;
 
     this.openSignalId = buildSignalId(this.config.strategy, this.config.symbol, now, direction);
     this.position = { direction, entryPrice: entry, initialStopLoss: stopLoss, stopLoss, takeProfit, risk, stage: 0, bestPrice: entry, openedAt: now };
-    return true;
+    return this.openSignalId;
   }
 }

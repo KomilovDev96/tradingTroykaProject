@@ -177,3 +177,27 @@ model AuthSession {
 
   @@index([accountId])
 }
+
+/// One answer of the AI strategy (BUY/SELL/SKIP), kept with its token usage and cost.
+/// `signalId` is set when the answer opened a position (Trade.signalId); `rejected` says why a BUY/SELL was not traded.
+model AiAnalysis {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  symbol       String
+  model        String
+  decision     String
+  analysis     String
+  entry        Decimal?
+  stopLoss     Decimal?
+  takeProfit   Decimal?
+  /// Live price when the answer arrived.
+  price        Decimal?
+  rejected     String?
+  signalId     String?
+  inputTokens  Int
+  outputTokens Int
+  costUsd      Decimal? @db.Decimal(12, 6)
+
+  @@index([createdAt])
+  @@index([signalId])
+}
