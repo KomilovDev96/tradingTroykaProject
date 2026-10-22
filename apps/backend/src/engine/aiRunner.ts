@@ -11,6 +11,7 @@ import {
   closeTradeManually,
   countOpenTradesForSignal,
   createTradesForSignal,
+  getAllClosedTrades,
   moveStopLoss,
   type TradeDTO,
 } from '../db/tradeRepository';
@@ -28,14 +29,20 @@ const MAX_PRICE_AGE_MS = 60_000;
 /** At +1R the stop goes to breakeven, afterwards it trails 1R behind the best price. */
 const BREAKEVEN_AT_R = 1;
 const HISTORY_LIMIT = 20;
+/** How much of its own past the model sees in every request. */
+const MEMORY_ANALYSES = 10;
+const MEMORY_TRADES = 8;
 
 const SYSTEM_PROMPT = `You are a disciplined intraday scalping analyst for spot gold (XAUUSD). 1 point = $1.
 You get recent 5-minute candles, hourly candles and indicators. First analyse the market (trend, momentum, levels, volatility), then decide.
-Only take a trade when there is a clear edge; otherwise answer SKIP. Skipping is a good answer.
+This is scalping: you are expected to look for a trade setup in almost every request. Trade with the trend, or fade the edge of a range at a real level (support/resistance, range high/low, EMA, previous swing) with a tight stop behind it.
+Answer SKIP only when there is genuinely no usable level, the market is dead, or the move has already run away from every level. Do not skip just because the H1 trend and the M5 move disagree, or because the market is ranging: a range gives two clear trades at its edges.
+If you skipped several times in a row with the same reasoning, re-check whether a range-edge or pullback entry now exists before skipping again.
 Reply with ONE JSON object and nothing else:
 {"decision":"BUY"|"SELL"|"SKIP","analysis":"2-4 sentences in Russian","entry":number,"stopLoss":number,"takeProfit":number}
 Rules: for BUY stopLoss < entry < takeProfit; for SELL takeProfit < entry < stopLoss. Stop distance ${MIN_STOP_POINTS}-${MAX_STOP_POINTS} points,
-reward/risk at least ${MIN_REWARD_RISK}. Put the stop behind a real level, not an arbitrary number. entry is the current price (or very close). For SKIP omit entry/stopLoss/takeProfit.`;
+reward/risk at least ${MIN_REWARD_RISK}. Put the stop behind a real level, not an arbitrary number. entry is the current price (or very close). For SKIP omit entry/stopLoss/takeProfit.
+You also get your own previous answers and the outcomes of your recent trades. Use them: stay consistent unless the market gave a new reason to change your view, and be more selective after a series of stopped-out trades.`;
 
 export type AiAnalysis = AiAnalysisRecord;
 
@@ -267,7 +274,37 @@ export class AiRunner {
     }
   }
 
-  private buildPrompt(price: number): string {
+  /** The model's own recent answers and closed trades (from Postgres), so it can stay consistent and learn from outcomes. */
+  private async buildMemory(): Promise<string> {
+    const sections: string[] = [];
+    // Read from Postgres (the source of truth); fall back to what is in memory if the read fails.
+    const answers = await listAiAnalyses(MEMORY_ANALYSES).catch(() => this.history.slice(0, MEMORY_ANALYSES));
+    if (answers.length > 0) {
+      sections.push(
+        `Your previous answers (newest first):\n${answers
+          .map((a) => `${new Date(a.time).toISOString().slice(5, 16)} ${a.decision}${a.rejected ? ` (not traded: ${a.rejected})` : ''} — ${a.analysis.replace(/\s+/g, ' ').slice(0, 180)}`)
+          .join('\n')}`,
+      );
+    }
+    try {
+      const rows = await getAllClosedTrades(this.config.symbol, undefined, this.config.strategy);
+      const seen = new Set<string>();
+      const trades = rows.filter((t) => !seen.has(t.signalId) && seen.add(t.signalId)).slice(-MEMORY_TRADES).reverse();
+      if (trades.length > 0) {
+        sections.push(
+          `Your recent closed trades (newest first):\n${trades
+            .map((t) => `${new Date(t.confirmationTime).toISOString().slice(5, 16)} ${t.direction} entry ${t.entryPrice.toFixed(2)} exit ${t.exitPrice?.toFixed(2) ?? '?'} → ${(t.pnlPoints ?? 0) >= 0 ? '+' : ''}${(t.pnlPoints ?? 0).toFixed(2)} pts (${t.result ?? t.status})`)
+            .join('\n')}`,
+        );
+      }
+    } catch (err) {
+      console.error('[ai] Failed to load trade memory:', err);
+    }
+    return sections.join('\n\n');
+  }
+
+  private async buildPrompt(price: number): Promise<string> {
+    const memory = await this.buildMemory();
     const m5 = this.market.m5();
     const h1 = this.market.h1();
     const closes5 = m5.map((c) => c.close);
@@ -282,6 +319,7 @@ export class AiRunner {
       last24hLow: day.length ? round(Math.min(...day.map((c) => c.low))) : null,
     };
     return [
+      ...(memory ? [memory] : []),
       `Now (UTC): ${new Date().toISOString()}`,
       `Indicators: ${JSON.stringify(indicators)}`,
       `Last 24 hourly candles:\n${h1.slice(-24).map(fmt).join('\n')}`,
@@ -312,7 +350,7 @@ export class AiRunner {
       return;
     }
 
-    const reply = await askClaude(SYSTEM_PROMPT, this.buildPrompt(snapshot.value));
+    const reply = await askClaude(SYSTEM_PROMPT, await this.buildPrompt(snapshot.value));
     this.lastError = null;
     this.addUsage(reply.usage, reply.rateLimit);
 
