@@ -5,6 +5,7 @@ import { WebSocketServer } from 'ws';
 import { env } from './env';
 import type { EngineRunner } from './engine/runner';
 import type { LongTermRunner } from './engine/longTermRunner';
+import type { AiRunner } from './engine/aiRunner';
 import { LONG_TERM_STRATEGY, parseStrategy } from './strategies';
 import { getAllClosedTrades, getClosedTradesInRange, getOpenTrades, listTrades, type TradeFilters } from './db/tradeRepository';
 import { computeByDayOfWeek, computeByDirection, computePnlCurve, computeStopLossStats, computeSummary } from './stats/computeStats';
@@ -57,7 +58,7 @@ function route(handler: (req: Request, res: Response) => Promise<unknown>) {
   };
 }
 
-export function createApp(runner: EngineRunner, longTermRunner: LongTermRunner) {
+export function createApp(runner: EngineRunner, longTermRunner: LongTermRunner, aiRunner: AiRunner) {
   const app = express();
   // Behind Caddy in production: trust the private-network proxy so req.ip is the real client.
   app.set('trust proxy', 'loopback, uniquelocal');
@@ -187,6 +188,43 @@ export function createApp(runner: EngineRunner, longTermRunner: LongTermRunner) 
       return;
     }
     const closed = await target.closePositionFor(accountOf(res).id, latest.currentPrice, Date.now());
+    if (!closed) {
+      res.status(409).json({ error: 'NO_POSITION' });
+      return;
+    }
+    res.json(closed);
+  }));
+
+  /** AI strategy: visible to and controlled by the super admin only (checked here, not just hidden in the UI). */
+  const requireSuperAdmin = (_req: Request, res: Response, next: NextFunction) => {
+    if (accountOf(res).role !== 'SUPERADMIN') {
+      res.status(403).json({ error: 'FORBIDDEN' });
+      return;
+    }
+    next();
+  };
+  const aiStatus = (res: Response) => res.json(aiRunner.getStatus());
+  app.get('/api/ai/status', requireSuperAdmin, (_req, res) => aiStatus(res));
+  app.post('/api/ai/enable', requireSuperAdmin, (_req, res) => {
+    try {
+      aiRunner.setEnabled(true);
+    } catch {
+      res.status(409).json({ error: 'AI_NOT_CONFIGURED' });
+      return;
+    }
+    aiStatus(res);
+  });
+  app.post('/api/ai/disable', requireSuperAdmin, (_req, res) => {
+    aiRunner.setEnabled(false);
+    aiStatus(res);
+  });
+  app.post('/api/ai/close-position', requireSuperAdmin, route(async (_req, res) => {
+    const price = aiRunner.getStatus().price;
+    if (price === null) {
+      res.status(409).json({ error: 'NO_DATA' });
+      return;
+    }
+    const closed = await aiRunner.closePositionFor(accountOf(res).id, price, Date.now());
     if (!closed) {
       res.status(409).json({ error: 'NO_POSITION' });
       return;

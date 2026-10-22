@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { ME_QUERY_KEY } from '../entities/session/api/session';
 import { ApiError } from '../shared/api/httpClient';
 import { ANTD_LOCALES, useLanguageStore } from '../shared/i18n';
+import { useThemeStore } from '../shared/theme';
 import { Layout } from './Layout';
 import { RequireAuth } from './RequireAuth';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
@@ -13,6 +14,7 @@ import { AnalyticsPage } from '../pages/analytics/AnalyticsPage';
 import { SettingsPage } from '../pages/settings/SettingsPage';
 import { LoginPage } from '../pages/login/LoginPage';
 import { RegisterPage } from '../pages/register/RegisterPage';
+import { AiPage } from '../pages/ai/AiPage';
 import { AdminPage } from '../pages/admin/AdminPage';
 
 const queryClient: QueryClient = new QueryClient({
@@ -26,10 +28,11 @@ const queryClient: QueryClient = new QueryClient({
 
 export default function App() {
   const language = useLanguageStore((s) => s.language);
+  const mode = useThemeStore((s) => s.mode);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider theme={{ algorithm: theme.darkAlgorithm }} locale={ANTD_LOCALES[language]}>
+      <ConfigProvider theme={{ algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm }} locale={ANTD_LOCALES[language]}>
         <AntApp>
         <BrowserRouter>
           <Routes>
@@ -42,6 +45,7 @@ export default function App() {
               <Route path="/trades" element={<TradesPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/ai" element={<RequireAuth superAdmin><AiPage /></RequireAuth>} />
             </Route>
           </Routes>
         </BrowserRouter>

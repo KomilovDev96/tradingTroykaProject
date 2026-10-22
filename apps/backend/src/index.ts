@@ -5,7 +5,8 @@ import { hashPassword } from './auth/password';
 import { createTradesForSignal, getOpenTrades, type TradeDTO } from './db/tradeRepository';
 import { EngineRunner } from './engine/runner';
 import { LongTermRunner } from './engine/longTermRunner';
-import { LONG_TERM_STRATEGY, SCALPING_STRATEGY } from './strategies';
+import { AiRunner } from './engine/aiRunner';
+import { AI_STRATEGY, LONG_TERM_STRATEGY, SCALPING_STRATEGY } from './strategies';
 import { fetchCandles, streamPrices } from './marketdata/derivClient';
 import { createApp } from './server';
 
@@ -50,6 +51,12 @@ async function main() {
   longTermRunner.candleStore.seedFromHistory(h1History);
   longTermRunner.setDailyCandles(dailyHistory);
 
+  const aiRunner = new AiRunner(
+    { userId, symbol: env.instrument, strategy: AI_STRATEGY, timeframe: '5m' },
+    { m5: () => runner.candleStore.getCandles(), h1: () => longTermRunner.candleStore.getCandles() },
+    () => hub?.broadcast({ type: 'trades-changed' }),
+  );
+
   // Section 46: restore an open position across backend restarts from Postgres, not memory.
   // Only positions someone actually holds (legacy rows without an account are closed by migration).
   const [openTrade] = (await getOpenTrades(env.instrument, undefined, SCALPING_STRATEGY)).filter((t) => t.accountId !== null);
@@ -61,6 +68,12 @@ async function main() {
   if (openLongTerm) {
     console.log(`[troyka] Restoring open long-term ${openLongTerm.direction} trade from ${new Date(openLongTerm.confirmationTime).toISOString()}`);
     longTermRunner.hydrateFromOpenTrade(openLongTerm);
+  }
+
+  const [openAi] = (await getOpenTrades(env.instrument, undefined, AI_STRATEGY)).filter((t) => t.accountId !== null);
+  if (openAi) {
+    console.log(`[troyka] Restoring open AI ${openAi.direction} trade from ${new Date(openAi.confirmationTime).toISOString()}`);
+    aiRunner.hydrateFromOpenTrade(openAi);
   }
 
   if (env.superAdminEmail) {
@@ -119,7 +132,7 @@ async function main() {
   await joinSuperAdmins(openTrade);
   await joinSuperAdmins(openLongTerm);
 
-  const app = createApp(runner, longTermRunner);
+  const app = createApp(runner, longTermRunner, aiRunner);
   hub = app.hub;
 
   app.httpServer.listen(env.port, () => {
@@ -156,6 +169,7 @@ async function main() {
     (tick) => {
       void runner.tick(tick.price, tick.time);
       void longTermRunner.tick(tick.price, tick.time);
+      void aiRunner.tick(tick.price, tick.time);
     },
     (err) => console.error('[troyka] Price stream error (will retry):', err.message),
   );

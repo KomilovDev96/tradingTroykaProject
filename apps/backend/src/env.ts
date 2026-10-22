@@ -22,4 +22,9 @@ export const env = {
   superAdminEmail: process.env.SUPERADMIN_EMAIL?.trim().toLowerCase() || null,
   /** Only used when that account doesn't exist yet. */
   superAdminPassword: process.env.SUPERADMIN_PASSWORD || null,
+  /** AI strategy: the key never leaves the server. Without it the strategy can't be switched on. */
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY?.trim() || null,
+  aiModel: process.env.AI_MODEL?.trim() || 'claude-sonnet-5-5',
+  /** Pause between two analyses while no position is open. */
+  aiIntervalSec: Math.max(20, Number(process.env.AI_INTERVAL_SEC ?? 60)),
 };

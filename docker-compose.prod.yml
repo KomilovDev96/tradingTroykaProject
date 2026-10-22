@@ -1,6 +1,7 @@
 # Production stack. Secrets come from /opt/troyka/.env on the server (never committed):
 #   POSTGRES_PASSWORD=...   DOMAIN=brokerkillers.uz
 #   SUPERADMIN_EMAIL=...    SUPERADMIN_PASSWORD=...  (password only used when that account is first created)
+#   ANTHROPIC_API_KEY=...   (AI strategy; optional — without it the strategy can't be switched on)
 services:
   postgres:
     image: postgres:16-alpine
@@ -31,6 +32,8 @@ services:
       FRONTEND_ORIGIN: https://${DOMAIN:?set DOMAIN in .env}
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-claude-sonnet-5-5}
 
   frontend:
     build:

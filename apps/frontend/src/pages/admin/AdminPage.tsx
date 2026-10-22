@@ -40,6 +40,9 @@ export function AdminPage() {
           <Link to="/">
             <Button size="small">{t('nav.dashboard')}</Button>
           </Link>
+          <Link to="/ai">
+            <Button size="small">{t('nav.ai')}</Button>
+          </Link>
           <LanguageSelect />
           <ChangePasswordButton />
           <Button size="small" loading={logout.isPending} onClick={() => logout.mutate(undefined, { onSettled: () => navigate('/login', { replace: true }) })}>

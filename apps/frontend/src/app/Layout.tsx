@@ -5,6 +5,7 @@ import { useLogout, useMeQuery } from '../entities/session/api/session';
 import { useMarketSocket } from '../features/market-data/model/useMarketSocket';
 import { LanguageSelect } from '../features/switch-language/ui/LanguageSelect';
 import { useT } from '../shared/i18n';
+import { useThemeStore } from '../shared/theme';
 
 export function Layout() {
   const location = useLocation();
@@ -14,6 +15,8 @@ export function Layout() {
   const t = useT();
   const me = useMeQuery();
   const logout = useLogout();
+  const themeMode = useThemeStore((s) => s.mode);
+  const toggleTheme = useThemeStore((s) => s.toggle);
   useMarketSocket();
 
   const navItems = [
@@ -22,6 +25,7 @@ export function Layout() {
     { key: '/trades', label: <Link to="/trades">{t('nav.trades')}</Link> },
     { key: '/analytics', label: <Link to="/analytics">{t('nav.analytics')}</Link> },
     { key: '/settings', label: <Link to="/settings">{t('nav.settings')}</Link> },
+    ...(me.data?.role === 'SUPERADMIN' ? [{ key: '/ai', label: <Link to="/ai">{t('nav.ai')}</Link> }] : []),
     ...(me.data?.role === 'SUPERADMIN' ? [{ key: '/admin', label: <Link to="/admin">{t('nav.admin')}</Link> }] : []),
   ];
 
@@ -35,6 +39,15 @@ export function Layout() {
 
   const accountControls = (
     <>
+      <Button
+        type="text"
+        size="small"
+        aria-label={themeMode === 'dark' ? t('theme.switchToLight') : t('theme.switchToDark')}
+        onClick={toggleTheme}
+        style={{ color: themeMode === 'dark' ? '#fff' : '#1f2937', fontSize: 18, lineHeight: 1 }}
+      >
+        {themeMode === 'dark' ? '☀' : '☾'}
+      </Button>
       <LanguageSelect />
       <Button size="small" onClick={handleLogout} loading={logout.isPending}>
         {t('auth.logout')}
