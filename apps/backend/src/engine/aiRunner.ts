@@ -2,7 +2,7 @@ import type { Candle } from '@troyka/strategy-engine';
 import { askClaude, costUsd, modelPrice, type ClaudeUsage, type RateLimitInfo } from '../ai/claudeClient';
 import { atr, ema, round, rsi } from '../ai/indicators';
 import { listActiveSuperAdminIds } from '../db/accountRepository';
-import { aiUsageTotals, listAiAnalyses, saveAiAnalysis, type AiAnalysisRecord } from '../db/aiRepository';
+import { aiUsageTotals, listAiAnalyses, readAiEnabled, saveAiAnalysis, writeAiEnabled, type AiAnalysisRecord } from '../db/aiRepository';
 import { createTradingSession } from '../db/sessionRepository';
 import {
   buildSignalId,
@@ -156,16 +156,22 @@ export class AiRunner {
   async loadFromDb() {
     this.history = await listAiAnalyses(HISTORY_LIMIT);
     this.usage = await aiUsageTotals();
+    // Back on after a restart/deploy if the super admin had left it on (needs the API key and a price feed).
+    if (env.anthropicApiKey && (await readAiEnabled())) {
+      this.setEnabled(true, false);
+      console.log('[ai] Strategy restored as ON after restart');
+    }
   }
 
   isEnabled() {
     return this.enabled;
   }
 
-  setEnabled(enabled: boolean) {
+  setEnabled(enabled: boolean, persist = true) {
     if (enabled === this.enabled) return;
     if (enabled && !env.anthropicApiKey) throw new Error('ANTHROPIC_API_KEY is not set');
     this.enabled = enabled;
+    if (persist) void writeAiEnabled(enabled).catch((err) => console.error('[ai] Failed to save the on/off switch:', err));
     if (enabled) {
       this.lastError = null;
       this.timer = setInterval(() => void this.analyzeIfDue(), 5_000);

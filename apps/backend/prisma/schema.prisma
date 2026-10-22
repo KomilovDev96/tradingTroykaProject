@@ -201,3 +201,10 @@ model AiAnalysis {
   @@index([createdAt])
   @@index([signalId])
 }
+
+/// Small key/value store for runtime switches that must survive a restart (e.g. "ai.enabled").
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

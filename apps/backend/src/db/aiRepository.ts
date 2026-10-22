@@ -62,3 +62,19 @@ export async function aiUsageTotals() {
     since: sum._min.createdAt?.getTime() ?? Date.now(),
   };
 }
+
+const AI_ENABLED_KEY = 'ai.enabled';
+
+/** The super admin's on/off choice survives restarts and deploys; the very first start is off. */
+export async function readAiEnabled(): Promise<boolean> {
+  const row = await prisma.appSetting.findUnique({ where: { key: AI_ENABLED_KEY } });
+  return row?.value === 'true';
+}
+
+export async function writeAiEnabled(enabled: boolean): Promise<void> {
+  await prisma.appSetting.upsert({
+    where: { key: AI_ENABLED_KEY },
+    update: { value: String(enabled) },
+    create: { key: AI_ENABLED_KEY, value: String(enabled) },
+  });
+}
